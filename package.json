@@ -1,0 +1,28 @@
+{
+  "name": "map-videos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render MapRouteVideo --gl=angle --concurrency=1",
+    "render:test": "remotion render MapRouteVideo --gl=angle --frames=0-150 out/test.mp4",
+    "prepare-gpx": "tsx scripts/prepare-gpx.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.277",
+    "@turf/turf": "^7.2.0",
+    "gpxparser": "^3.0.8",
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.277",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.277",
+    "@remotion/renderer": "4.0.277",
+    "@types/react": "^18.3.12",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
