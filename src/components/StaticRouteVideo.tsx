@@ -4,8 +4,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
   staticFile,
-  Easing,
-  interpolate,
 } from "remotion";
 import staticMapMeta from "../data/static-map-meta.json";
 
@@ -55,42 +53,13 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
     }
   }, [svgPath]);
 
-  // Animation timing
-  // 0-8%: fade in map, pause
-  // 8-92%: draw the line
-  // 92-100%: hold complete, fade out
-  const fadeInEnd = 0.08;
-  const drawStart = 0.08;
-  const drawEnd = 0.92;
-  const fadeOutStart = 0.92;
-
   const progress = frame / durationInFrames;
 
-  // Map fade in
-  const mapOpacity = interpolate(progress, [0, fadeInEnd * 0.5], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  // No fade — always fully visible
+  const mapOpacity = 1;
 
-  // Line drawing progress (0 to 1)
-  const drawProgress = interpolate(
-    progress,
-    [drawStart, drawEnd],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  // Apply easing for cinematic feel — slow start, steady middle, slow end
-  const easedDraw =
-    drawProgress < 0.1
-      ? interpolate(drawProgress, [0, 0.1], [0, 0.1], {
-          easing: Easing.out(Easing.cubic),
-          extrapolateRight: "clamp",
-        })
-      : drawProgress > 0.9
-        ? interpolate(drawProgress, [0.9, 1], [0.9, 1], {
-            easing: Easing.in(Easing.cubic),
-            extrapolateRight: "clamp",
-          })
-        : drawProgress;
+  // Line drawing progress (0 to 1) — full duration, constant speed
+  const easedDraw = Math.min(1, Math.max(0, progress));
 
   // Calculate stroke-dashoffset
   const dashOffset = pathLength > 0 ? pathLength * (1 - easedDraw) : pathLength;
@@ -146,14 +115,6 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
     }
     return gain;
   }, [easedDraw]);
-
-  // Fade out at end
-  const overlayOpacity = interpolate(
-    progress,
-    [fadeOutStart, 1],
-    [0, 0.6],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
 
   // Pulsing glow on the runner dot
   const glowPulse = 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2);
@@ -277,6 +238,46 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
         }}
       />
 
+      {/* Location tag — top right */}
+      <div
+        style={{
+          position: "absolute",
+          top: 80,
+          right: 80,
+          textAlign: "right",
+          zIndex: 10,
+          opacity: mapOpacity,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'Courier New', Courier, monospace",
+            fontSize: 72,
+            fontWeight: 700,
+            color: "white",
+            textShadow:
+              "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+            lineHeight: 1.2,
+          }}
+        >
+          魔鬼山 Devil's Peak
+        </div>
+        <div
+          style={{
+            fontFamily: "'Courier New', Courier, monospace",
+            fontSize: 44,
+            fontWeight: 400,
+            color: "rgba(255,255,255,0.75)",
+            textShadow:
+              "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+            lineHeight: 1,
+            marginTop: 12,
+          }}
+        >
+          Hong Kong
+        </div>
+      </div>
+
       {/* HUD: Distance counter */}
       <div
         style={{
@@ -331,20 +332,6 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
         </div>
       </div>
 
-      {/* End fade overlay */}
-      {overlayOpacity > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: `rgba(10, 10, 10, ${overlayOpacity})`,
-            zIndex: 20,
-          }}
-        />
-      )}
     </AbsoluteFill>
   );
 };

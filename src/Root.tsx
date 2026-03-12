@@ -31,7 +31,7 @@ export const RemotionRoot: React.FC = () => {
         height={2160}
         defaultProps={{
           routeColor: "#ff4444",
-          routeWidth: 6,
+          routeWidth: 20,
         }}
       />
     </>

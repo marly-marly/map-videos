@@ -8,6 +8,7 @@
 import sharp from "sharp";
 import fs from "fs";
 import path from "path";
+import * as turf from "@turf/turf";
 
 // ---------- Config ----------
 const SEGMENT_START_KM = 4;
@@ -106,10 +107,25 @@ async function main() {
   const endIdx = cumulativeDistances.findIndex(
     (d: number) => d >= SEGMENT_END_KM
   );
-  const segmentCoords = coords.slice(startIdx, endIdx + 1);
+  const rawSegmentCoords = coords.slice(startIdx, endIdx + 1);
+
+  // Resample at equal geographic distance intervals (every 20m)
+  // so the SVG path length is proportional to real-world distance,
+  // giving constant visual speed regardless of original GPS point density.
+  const RESAMPLE_INTERVAL_KM = 0.02; // 20 meters
+  const segmentLine = turf.lineString(rawSegmentCoords);
+  const segmentTotalKm = turf.length(segmentLine, { units: "kilometers" });
+  const resampledCoords: [number, number][] = [];
+  for (let d = 0; d <= segmentTotalKm; d += RESAMPLE_INTERVAL_KM) {
+    const pt = turf.along(segmentLine, d, { units: "kilometers" });
+    resampledCoords.push(pt.geometry.coordinates as [number, number]);
+  }
+  // Always include the last point
+  resampledCoords.push(rawSegmentCoords[rawSegmentCoords.length - 1]);
+  const segmentCoords = resampledCoords;
 
   console.log(
-    `Segment: km ${SEGMENT_START_KM}-${SEGMENT_END_KM}, ${segmentCoords.length} points`
+    `Segment: km ${SEGMENT_START_KM}-${SEGMENT_END_KM}, ${rawSegmentCoords.length} raw → ${segmentCoords.length} resampled points`
   );
 
   // Compute bounding box of segment
@@ -243,7 +259,7 @@ async function main() {
   }
 
   // Create base image and composite tiles
-  const stitched = sharp({
+  const stitchedBuf = await sharp({
     create: {
       width: stitchedWidth,
       height: stitchedHeight,
@@ -252,7 +268,54 @@ async function main() {
     },
   })
     .composite(compositeInputs)
-    .png();
+    .raw()
+    .toBuffer();
+
+  // Blend tile seams: average a thin strip (±2px) along each tile boundary
+  // to eliminate visible color discontinuities between adjacent tiles.
+  const BLEND_RADIUS = 2;
+  const rawPixels = Buffer.from(stitchedBuf);
+  const channels = 3;
+  const rowBytes = stitchedWidth * channels;
+
+  // Blend vertical seams (column boundaries between tiles)
+  for (let ti = 1; ti < tilesX; ti++) {
+    const seamX = ti * TILE_SIZE;
+    for (let y = 0; y < stitchedHeight; y++) {
+      for (let dx = -BLEND_RADIUS; dx <= BLEND_RADIUS; dx++) {
+        const x = seamX + dx;
+        if (x < 1 || x >= stitchedWidth - 1) continue;
+        const idx = y * rowBytes + x * channels;
+        // Simple 3-pixel average
+        for (let c = 0; c < channels; c++) {
+          const left = rawPixels[idx - channels + c];
+          const center = rawPixels[idx + c];
+          const right = rawPixels[idx + channels + c];
+          rawPixels[idx + c] = Math.round((left + center + right) / 3);
+        }
+      }
+    }
+  }
+
+  // Blend horizontal seams (row boundaries between tiles)
+  for (let ti = 1; ti < tilesY; ti++) {
+    const seamY = ti * TILE_SIZE;
+    for (let x = 0; x < stitchedWidth; x++) {
+      for (let dy = -BLEND_RADIUS; dy <= BLEND_RADIUS; dy++) {
+        const y = seamY + dy;
+        if (y < 1 || y >= stitchedHeight - 1) continue;
+        const idx = y * rowBytes + x * channels;
+        for (let c = 0; c < channels; c++) {
+          const above = rawPixels[(y - 1) * rowBytes + x * channels + c];
+          const center = rawPixels[idx + c];
+          const below = rawPixels[(y + 1) * rowBytes + x * channels + c];
+          rawPixels[idx + c] = Math.round((above + center + below) / 3);
+        }
+      }
+    }
+  }
+
+  console.log("Blended tile seams");
 
   // Crop to the exact 16:9 viewport
   const cropLeft = Math.round(topLeftPx.x - tileMinX * TILE_SIZE);
@@ -260,7 +323,9 @@ async function main() {
   const cropWidth = Math.round(pxWidth);
   const cropHeight = Math.round(pxHeight);
 
-  const croppedBuf = await sharp(await stitched.toBuffer())
+  const croppedBuf = await sharp(rawPixels, {
+    raw: { width: stitchedWidth, height: stitchedHeight, channels: 3 },
+  })
     .extract({
       left: cropLeft,
       top: cropTop,
@@ -295,11 +360,32 @@ async function main() {
     }
   );
 
-  // Also compute cumulative distances for the segment (relative to segment start)
-  const segmentDistances = cumulativeDistances
+  // Compute cumulative distances for the resampled segment
+  const segmentDistances: number[] = [];
+  for (let i = 0; i < segmentCoords.length; i++) {
+    segmentDistances.push(i * RESAMPLE_INTERVAL_KM);
+  }
+  // Fix last entry to be exact total
+  segmentDistances[segmentDistances.length - 1] = segmentTotalKm;
+
+  // Interpolate elevations at resampled positions from original data
+  const origSegDists = cumulativeDistances
     .slice(startIdx, endIdx + 1)
     .map((d: number) => d - cumulativeDistances[startIdx]);
-  const segmentElevations = elevations.slice(startIdx, endIdx + 1);
+  const origSegElevs: number[] = elevations.slice(startIdx, endIdx + 1);
+
+  const segmentElevations: number[] = segmentDistances.map((d: number) => {
+    if (d <= 0) return origSegElevs[0];
+    if (d >= origSegDists[origSegDists.length - 1])
+      return origSegElevs[origSegElevs.length - 1];
+    for (let i = 1; i < origSegDists.length; i++) {
+      if (origSegDists[i] >= d) {
+        const t = (d - origSegDists[i - 1]) / (origSegDists[i] - origSegDists[i - 1]);
+        return origSegElevs[i - 1] + t * (origSegElevs[i] - origSegElevs[i - 1]);
+      }
+    }
+    return origSegElevs[origSegElevs.length - 1];
+  });
 
   const metadata = {
     bounds: {
