@@ -271,27 +271,34 @@ async function main() {
     .raw()
     .toBuffer();
 
-  // Blend tile seams: average a thin strip (±2px) along each tile boundary
-  // to eliminate visible color discontinuities between adjacent tiles.
-  const BLEND_RADIUS = 2;
+  // Blend tile seams: crossfade a strip along each tile boundary using
+  // weighted interpolation so the transition is smooth and invisible.
+  const BLEND_RADIUS = 8;
   const rawPixels = Buffer.from(stitchedBuf);
   const channels = 3;
   const rowBytes = stitchedWidth * channels;
 
   // Blend vertical seams (column boundaries between tiles)
+  // For each seam, crossfade between the left-side and right-side pixel values
   for (let ti = 1; ti < tilesX; ti++) {
     const seamX = ti * TILE_SIZE;
     for (let y = 0; y < stitchedHeight; y++) {
+      // Sample colors from outside the blend zone
+      const leftSafeX = Math.max(0, seamX - BLEND_RADIUS - 1);
+      const rightSafeX = Math.min(stitchedWidth - 1, seamX + BLEND_RADIUS + 1);
+      const leftIdx = y * rowBytes + leftSafeX * channels;
+      const rightIdx = y * rowBytes + rightSafeX * channels;
+
       for (let dx = -BLEND_RADIUS; dx <= BLEND_RADIUS; dx++) {
         const x = seamX + dx;
-        if (x < 1 || x >= stitchedWidth - 1) continue;
+        if (x < 0 || x >= stitchedWidth) continue;
+        // t=0 at left edge, t=1 at right edge
+        const t = (dx + BLEND_RADIUS) / (2 * BLEND_RADIUS);
         const idx = y * rowBytes + x * channels;
-        // Simple 3-pixel average
         for (let c = 0; c < channels; c++) {
-          const left = rawPixels[idx - channels + c];
-          const center = rawPixels[idx + c];
-          const right = rawPixels[idx + channels + c];
-          rawPixels[idx + c] = Math.round((left + center + right) / 3);
+          const leftVal = rawPixels[leftIdx + c];
+          const rightVal = rawPixels[rightIdx + c];
+          rawPixels[idx + c] = Math.round(leftVal * (1 - t) + rightVal * t);
         }
       }
     }
@@ -301,15 +308,20 @@ async function main() {
   for (let ti = 1; ti < tilesY; ti++) {
     const seamY = ti * TILE_SIZE;
     for (let x = 0; x < stitchedWidth; x++) {
+      const topSafeY = Math.max(0, seamY - BLEND_RADIUS - 1);
+      const botSafeY = Math.min(stitchedHeight - 1, seamY + BLEND_RADIUS + 1);
+      const topIdx = topSafeY * rowBytes + x * channels;
+      const botIdx = botSafeY * rowBytes + x * channels;
+
       for (let dy = -BLEND_RADIUS; dy <= BLEND_RADIUS; dy++) {
         const y = seamY + dy;
-        if (y < 1 || y >= stitchedHeight - 1) continue;
+        if (y < 0 || y >= stitchedHeight) continue;
+        const t = (dy + BLEND_RADIUS) / (2 * BLEND_RADIUS);
         const idx = y * rowBytes + x * channels;
         for (let c = 0; c < channels; c++) {
-          const above = rawPixels[(y - 1) * rowBytes + x * channels + c];
-          const center = rawPixels[idx + c];
-          const below = rawPixels[(y + 1) * rowBytes + x * channels + c];
-          rawPixels[idx + c] = Math.round((above + center + below) / 3);
+          const topVal = rawPixels[topIdx + c];
+          const botVal = rawPixels[botIdx + c];
+          rawPixels[idx + c] = Math.round(topVal * (1 - t) + botVal * t);
         }
       }
     }
