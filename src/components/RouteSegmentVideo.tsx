@@ -60,8 +60,9 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   // No fade — always fully visible
   const mapOpacity = 1;
 
-  // Line drawing progress (0 to 1) — full duration, constant speed
-  const easedDraw = Math.min(1, Math.max(0, progress));
+  // Line drawing: finish at 85% of duration, hold still for the last 15%
+  const drawEnd = 0.85;
+  const easedDraw = Math.min(1, Math.max(0, progress / drawEnd));
 
   // Calculate stroke-dashoffset
   const dashOffset = pathLength > 0 ? pathLength * (1 - easedDraw) : pathLength;
