@@ -1,6 +1,6 @@
 import { Composition } from "remotion";
 import { MapRouteVideo } from "./components/MapRouteVideo";
-import { StaticRouteVideo } from "./components/StaticRouteVideo";
+import { DevilsPeak } from "./components/StaticRouteVideo";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -22,9 +22,9 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="StaticRouteVideo"
+        id="DevilsPeak"
         // @ts-expect-error Remotion Composition generics
-        component={StaticRouteVideo}
+        component={DevilsPeak}
         durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}

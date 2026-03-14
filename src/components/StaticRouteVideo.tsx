@@ -7,7 +7,7 @@ import {
 } from "remotion";
 import staticMapMeta from "../data/static-map-meta.json";
 
-export interface StaticRouteVideoProps {
+export interface DevilsPeakProps {
   routeColor: string;
   routeWidth: number;
 }
@@ -25,7 +25,7 @@ interface SegmentMeta {
 
 const meta = staticMapMeta as unknown as SegmentMeta;
 
-export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
+export const DevilsPeak: React.FC<DevilsPeakProps> = ({
   routeColor,
   routeWidth,
 }) => {
@@ -238,46 +238,6 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
         }}
       />
 
-      {/* Location tag — top right */}
-      <div
-        style={{
-          position: "absolute",
-          top: 80,
-          right: 80,
-          textAlign: "right",
-          zIndex: 10,
-          opacity: mapOpacity,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 72,
-            fontWeight: 700,
-            color: "white",
-            textShadow:
-              "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
-            lineHeight: 1.2,
-          }}
-        >
-          魔鬼山 Devil's Peak
-        </div>
-        <div
-          style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 44,
-            fontWeight: 400,
-            color: "rgba(255,255,255,0.75)",
-            textShadow:
-              "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-            lineHeight: 1,
-            marginTop: 12,
-          }}
-        >
-          Hong Kong
-        </div>
-      </div>
-
       {/* HUD: Distance counter */}
       <div
         style={{
@@ -307,21 +267,8 @@ export const StaticRouteVideo: React.FC<StaticRouteVideoProps> = ({
         <div
           style={{
             fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 48,
-            fontWeight: 400,
-            color: "rgba(255,255,255,0.85)",
-            textShadow:
-              "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-            lineHeight: 1,
-          }}
-        >
-          {Math.round(currentElevation)}m elev
-        </div>
-        <div
-          style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 48,
-            fontWeight: 400,
+            fontSize: 72,
+            fontWeight: 500,
             color: "rgba(255,255,255,0.85)",
             textShadow:
               "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
