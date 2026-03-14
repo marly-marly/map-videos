@@ -345,6 +345,22 @@ async function main() {
     return origSegElevs[origSegElevs.length - 1];
   });
 
+  // Convert all route points from km 0 to segment start into pixel positions
+  // (for showing the previous route as a dim trail)
+  const prevCoords = coords.slice(0, startIdx + 1);
+  const prevPixels: { x: number; y: number }[] = prevCoords.map(
+    ([lng, lat]: [number, number]) => {
+      const globalX = lngToTileX(lng, ZOOM) * TILE_SIZE;
+      const globalY = latToTileY(lat, ZOOM) * TILE_SIZE;
+      const relX = globalX - topLeftPx.x;
+      const relY = globalY - topLeftPx.y;
+      return {
+        x: (relX / pxWidth) * OUTPUT_WIDTH,
+        y: (relY / pxHeight) * OUTPUT_HEIGHT,
+      };
+    }
+  );
+
   const metadata = {
     bounds: {
       minLng: finalMinLng,
@@ -360,6 +376,7 @@ async function main() {
     segmentLengthKm:
       cumulativeDistances[endIdx] - cumulativeDistances[startIdx],
     segmentPoints: segmentPixels,
+    previousRoutePoints: prevPixels,
     segmentDistances,
     segmentElevations,
     peakElevation: Math.max(...segmentElevations),

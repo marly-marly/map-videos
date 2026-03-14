@@ -15,6 +15,7 @@ export interface RouteSegmentVideoProps {
 
 export interface SegmentMeta {
   segmentPoints: { x: number; y: number }[];
+  previousRoutePoints?: { x: number; y: number }[];
   segmentDistances: number[];
   segmentElevations: number[];
   segmentLengthKm: number;
@@ -38,6 +39,17 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   const svgPath = useMemo(() => {
     const pts = meta.segmentPoints;
     if (pts.length < 2) return "";
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      d += ` L ${pts[i].x} ${pts[i].y}`;
+    }
+    return d;
+  }, [meta]);
+
+  // Build SVG path for previous route (before this segment)
+  const prevPath = useMemo(() => {
+    const pts = meta.previousRoutePoints;
+    if (!pts || pts.length < 2) return "";
     let d = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 1; i < pts.length; i++) {
       d += ` L ${pts[i].x} ${pts[i].y}`;
@@ -159,6 +171,19 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
             </feMerge>
           </filter>
         </defs>
+
+        {/* Previous route — dim trail showing earlier segments */}
+        {prevPath && (
+          <path
+            d={prevPath}
+            fill="none"
+            stroke={routeColor}
+            strokeWidth={routeWidth * 0.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.25}
+          />
+        )}
 
         {/* Route casing (dark outline) */}
         <path
