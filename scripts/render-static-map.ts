@@ -11,8 +11,11 @@ import path from "path";
 import * as turf from "@turf/turf";
 
 // ---------- Config ----------
-const SEGMENT_START_KM = 4;
-const SEGMENT_END_KM = 8.5;
+// CLI args: npx tsx scripts/render-static-map.ts [startKm] [endKm] [outputName]
+const args = process.argv.slice(2);
+const SEGMENT_START_KM = args[0] ? parseFloat(args[0]) : 4;
+const SEGMENT_END_KM = args[1] ? parseFloat(args[1]) : 8.5;
+const OUTPUT_NAME = args[2] || "static-map";
 const PADDING_FACTOR = 0.35; // 35% padding around the route segment
 const ZOOM = 17; // Esri zoom level (17 gives ~1.1m/px at lat 22)
 const TILE_SIZE = 256;
@@ -290,8 +293,11 @@ async function main() {
 
   // Save the output
   const outDir = path.join(__dirname, "../src/data");
-  const outPng = path.join(outDir, "static-map.png");
+  const outPng = path.join(outDir, `${OUTPUT_NAME}.png`);
   fs.writeFileSync(outPng, croppedBuf);
+  // Also copy to public for Remotion's staticFile()
+  const publicPng = path.join(__dirname, "../public", `${OUTPUT_NAME}.png`);
+  fs.writeFileSync(publicPng, croppedBuf);
   console.log(`Saved ${outPng} (${OUTPUT_WIDTH}x${OUTPUT_HEIGHT})`);
 
   // Convert route segment coordinates to pixel positions in the final image
@@ -359,7 +365,7 @@ async function main() {
     peakElevation: Math.max(...segmentElevations),
   };
 
-  const metaPath = path.join(outDir, "static-map-meta.json");
+  const metaPath = path.join(outDir, `${OUTPUT_NAME}-meta.json`);
   fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
   console.log(`Saved ${metaPath}`);
   console.log(
