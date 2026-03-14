@@ -274,8 +274,13 @@ async function main() {
 
   // Color-match tile columns: compute the average brightness of each tile column,
   // then adjust each column to match the global average.
-  const rawPixels = await sharp(stitchedPng).raw().toBuffer();
+  // Force 3 channels (RGB) — sharp may output RGBA from PNG
+  const rawPixels = await sharp(stitchedPng).toColourspace("srgb").removeAlpha().raw().toBuffer();
   const channels = 3;
+  const expectedSize = stitchedWidth * stitchedHeight * channels;
+  if (rawPixels.length !== expectedSize) {
+    throw new Error(`Raw buffer size mismatch: got ${rawPixels.length}, expected ${expectedSize} (${stitchedWidth}x${stitchedHeight}x${channels})`);
+  }
 
   // Compute average RGB per tile column
   const colAvgs: { r: number; g: number; b: number }[] = [];
