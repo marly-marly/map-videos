@@ -258,8 +258,9 @@ async function main() {
     }
   }
 
-  // Create base image and composite tiles
-  const stitchedBuf = await sharp({
+  // Create base image, composite tiles, then normalize brightness across tile
+  // columns to eliminate visible color seams from Esri's inconsistent imagery.
+  const stitchedPng = await sharp({
     create: {
       width: stitchedWidth,
       height: stitchedHeight,
@@ -268,66 +269,58 @@ async function main() {
     },
   })
     .composite(compositeInputs)
-    .raw()
+    .png()
     .toBuffer();
 
-  // Blend tile seams: crossfade a strip along each tile boundary using
-  // weighted interpolation so the transition is smooth and invisible.
-  const BLEND_RADIUS = 8;
-  const rawPixels = Buffer.from(stitchedBuf);
+  // Color-match tile columns: compute the average brightness of each tile column,
+  // then adjust each column to match the global average.
+  const rawPixels = await sharp(stitchedPng).raw().toBuffer();
   const channels = 3;
-  const rowBytes = stitchedWidth * channels;
 
-  // Blend vertical seams (column boundaries between tiles)
-  // For each seam, crossfade between the left-side and right-side pixel values
-  for (let ti = 1; ti < tilesX; ti++) {
-    const seamX = ti * TILE_SIZE;
+  // Compute average RGB per tile column
+  const colAvgs: { r: number; g: number; b: number }[] = [];
+  for (let ti = 0; ti < tilesX; ti++) {
+    const startX = ti * TILE_SIZE;
+    const endX = Math.min((ti + 1) * TILE_SIZE, stitchedWidth);
+    let sumR = 0, sumG = 0, sumB = 0, count = 0;
     for (let y = 0; y < stitchedHeight; y++) {
-      // Sample colors from outside the blend zone
-      const leftSafeX = Math.max(0, seamX - BLEND_RADIUS - 1);
-      const rightSafeX = Math.min(stitchedWidth - 1, seamX + BLEND_RADIUS + 1);
-      const leftIdx = y * rowBytes + leftSafeX * channels;
-      const rightIdx = y * rowBytes + rightSafeX * channels;
+      for (let x = startX; x < endX; x++) {
+        const idx = (y * stitchedWidth + x) * channels;
+        sumR += rawPixels[idx];
+        sumG += rawPixels[idx + 1];
+        sumB += rawPixels[idx + 2];
+        count++;
+      }
+    }
+    colAvgs.push({ r: sumR / count, g: sumG / count, b: sumB / count });
+  }
 
-      for (let dx = -BLEND_RADIUS; dx <= BLEND_RADIUS; dx++) {
-        const x = seamX + dx;
-        if (x < 0 || x >= stitchedWidth) continue;
-        // t=0 at left edge, t=1 at right edge
-        const t = (dx + BLEND_RADIUS) / (2 * BLEND_RADIUS);
-        const idx = y * rowBytes + x * channels;
-        for (let c = 0; c < channels; c++) {
-          const leftVal = rawPixels[leftIdx + c];
-          const rightVal = rawPixels[rightIdx + c];
-          rawPixels[idx + c] = Math.round(leftVal * (1 - t) + rightVal * t);
-        }
+  // Global average
+  const globalAvg = {
+    r: colAvgs.reduce((s, a) => s + a.r, 0) / colAvgs.length,
+    g: colAvgs.reduce((s, a) => s + a.g, 0) / colAvgs.length,
+    b: colAvgs.reduce((s, a) => s + a.b, 0) / colAvgs.length,
+  };
+
+  // Adjust each tile column to match global average
+  const corrected = Buffer.from(rawPixels);
+  for (let ti = 0; ti < tilesX; ti++) {
+    const startX = ti * TILE_SIZE;
+    const endX = Math.min((ti + 1) * TILE_SIZE, stitchedWidth);
+    const scaleR = colAvgs[ti].r > 0 ? globalAvg.r / colAvgs[ti].r : 1;
+    const scaleG = colAvgs[ti].g > 0 ? globalAvg.g / colAvgs[ti].g : 1;
+    const scaleB = colAvgs[ti].b > 0 ? globalAvg.b / colAvgs[ti].b : 1;
+    for (let y = 0; y < stitchedHeight; y++) {
+      for (let x = startX; x < endX; x++) {
+        const idx = (y * stitchedWidth + x) * channels;
+        corrected[idx] = Math.min(255, Math.round(rawPixels[idx] * scaleR));
+        corrected[idx + 1] = Math.min(255, Math.round(rawPixels[idx + 1] * scaleG));
+        corrected[idx + 2] = Math.min(255, Math.round(rawPixels[idx + 2] * scaleB));
       }
     }
   }
 
-  // Blend horizontal seams (row boundaries between tiles)
-  for (let ti = 1; ti < tilesY; ti++) {
-    const seamY = ti * TILE_SIZE;
-    for (let x = 0; x < stitchedWidth; x++) {
-      const topSafeY = Math.max(0, seamY - BLEND_RADIUS - 1);
-      const botSafeY = Math.min(stitchedHeight - 1, seamY + BLEND_RADIUS + 1);
-      const topIdx = topSafeY * rowBytes + x * channels;
-      const botIdx = botSafeY * rowBytes + x * channels;
-
-      for (let dy = -BLEND_RADIUS; dy <= BLEND_RADIUS; dy++) {
-        const y = seamY + dy;
-        if (y < 0 || y >= stitchedHeight) continue;
-        const t = (dy + BLEND_RADIUS) / (2 * BLEND_RADIUS);
-        const idx = y * rowBytes + x * channels;
-        for (let c = 0; c < channels; c++) {
-          const topVal = rawPixels[topIdx + c];
-          const botVal = rawPixels[botIdx + c];
-          rawPixels[idx + c] = Math.round(topVal * (1 - t) + botVal * t);
-        }
-      }
-    }
-  }
-
-  console.log("Blended tile seams");
+  console.log("Color-matched tile columns");
 
   // Crop to the exact 16:9 viewport
   const cropLeft = Math.round(topLeftPx.x - tileMinX * TILE_SIZE);
@@ -335,7 +328,7 @@ async function main() {
   const cropWidth = Math.round(pxWidth);
   const cropHeight = Math.round(pxHeight);
 
-  const croppedBuf = await sharp(rawPixels, {
+  const croppedBuf = await sharp(corrected, {
     raw: { width: stitchedWidth, height: stitchedHeight, channels: 3 },
   })
     .extract({
