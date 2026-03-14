@@ -258,9 +258,9 @@ async function main() {
     }
   }
 
-  // Create base image, composite tiles, then normalize brightness across tile
-  // columns to eliminate visible color seams from Esri's inconsistent imagery.
-  const stitchedPng = await sharp({
+  // Create base image and composite tiles (no seam post-processing —
+  // the single visible seam in the water can be fixed in Premiere Pro if needed)
+  const stitched = sharp({
     create: {
       width: stitchedWidth,
       height: stitchedHeight,
@@ -269,63 +269,7 @@ async function main() {
     },
   })
     .composite(compositeInputs)
-    .png()
-    .toBuffer();
-
-  // Color-match tile columns: compute the average brightness of each tile column,
-  // then adjust each column to match the global average.
-  // Force 3 channels (RGB) — sharp may output RGBA from PNG
-  const rawPixels = await sharp(stitchedPng).toColourspace("srgb").removeAlpha().raw().toBuffer();
-  const channels = 3;
-  const expectedSize = stitchedWidth * stitchedHeight * channels;
-  if (rawPixels.length !== expectedSize) {
-    throw new Error(`Raw buffer size mismatch: got ${rawPixels.length}, expected ${expectedSize} (${stitchedWidth}x${stitchedHeight}x${channels})`);
-  }
-
-  // Compute average RGB per tile column
-  const colAvgs: { r: number; g: number; b: number }[] = [];
-  for (let ti = 0; ti < tilesX; ti++) {
-    const startX = ti * TILE_SIZE;
-    const endX = Math.min((ti + 1) * TILE_SIZE, stitchedWidth);
-    let sumR = 0, sumG = 0, sumB = 0, count = 0;
-    for (let y = 0; y < stitchedHeight; y++) {
-      for (let x = startX; x < endX; x++) {
-        const idx = (y * stitchedWidth + x) * channels;
-        sumR += rawPixels[idx];
-        sumG += rawPixels[idx + 1];
-        sumB += rawPixels[idx + 2];
-        count++;
-      }
-    }
-    colAvgs.push({ r: sumR / count, g: sumG / count, b: sumB / count });
-  }
-
-  // Global average
-  const globalAvg = {
-    r: colAvgs.reduce((s, a) => s + a.r, 0) / colAvgs.length,
-    g: colAvgs.reduce((s, a) => s + a.g, 0) / colAvgs.length,
-    b: colAvgs.reduce((s, a) => s + a.b, 0) / colAvgs.length,
-  };
-
-  // Adjust each tile column to match global average
-  const corrected = Buffer.from(rawPixels);
-  for (let ti = 0; ti < tilesX; ti++) {
-    const startX = ti * TILE_SIZE;
-    const endX = Math.min((ti + 1) * TILE_SIZE, stitchedWidth);
-    const scaleR = colAvgs[ti].r > 0 ? globalAvg.r / colAvgs[ti].r : 1;
-    const scaleG = colAvgs[ti].g > 0 ? globalAvg.g / colAvgs[ti].g : 1;
-    const scaleB = colAvgs[ti].b > 0 ? globalAvg.b / colAvgs[ti].b : 1;
-    for (let y = 0; y < stitchedHeight; y++) {
-      for (let x = startX; x < endX; x++) {
-        const idx = (y * stitchedWidth + x) * channels;
-        corrected[idx] = Math.min(255, Math.round(rawPixels[idx] * scaleR));
-        corrected[idx + 1] = Math.min(255, Math.round(rawPixels[idx + 1] * scaleG));
-        corrected[idx + 2] = Math.min(255, Math.round(rawPixels[idx + 2] * scaleB));
-      }
-    }
-  }
-
-  console.log("Color-matched tile columns");
+    .png();
 
   // Crop to the exact 16:9 viewport
   const cropLeft = Math.round(topLeftPx.x - tileMinX * TILE_SIZE);
@@ -333,9 +277,7 @@ async function main() {
   const cropWidth = Math.round(pxWidth);
   const cropHeight = Math.round(pxHeight);
 
-  const croppedBuf = await sharp(corrected, {
-    raw: { width: stitchedWidth, height: stitchedHeight, channels: 3 },
-  })
+  const croppedBuf = await sharp(await stitched.toBuffer())
     .extract({
       left: cropLeft,
       top: cropTop,
