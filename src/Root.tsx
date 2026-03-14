@@ -39,7 +39,7 @@ export const RemotionRoot: React.FC = () => {
         id="SiuMaShan"
         // @ts-expect-error Remotion Composition generics
         component={SiuMaShan}
-        durationInFrames={FPS * 45}
+        durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}
         height={2160}
