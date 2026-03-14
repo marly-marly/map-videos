@@ -178,10 +178,10 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
             d={prevPath}
             fill="none"
             stroke={routeColor}
-            strokeWidth={routeWidth * 0.6}
+            strokeWidth={routeWidth}
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity={0.25}
+            opacity={0.4}
           />
         )}
 
