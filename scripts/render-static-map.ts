@@ -261,8 +261,7 @@ async function main() {
     }
   }
 
-  // Create base image and composite tiles (no seam post-processing —
-  // the single visible seam in the water can be fixed in Premiere Pro if needed)
+  // Create base image and composite tiles
   const stitched = sharp({
     create: {
       width: stitchedWidth,

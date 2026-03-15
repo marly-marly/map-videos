@@ -37,17 +37,42 @@ console.log(
   `Simplified from ${coordinates.length} to ${simplifiedCoords.length} points`
 );
 
-// Compute cumulative distances for simplified points
-const cumulativeDistances: number[] = [0];
-for (let i = 1; i < simplifiedCoords.length; i++) {
-  const from = turf.point(simplifiedCoords[i - 1]);
-  const to = turf.point(simplifiedCoords[i]);
-  const dist = turf.distance(from, to, { units: "kilometers" });
-  cumulativeDistances.push(cumulativeDistances[i - 1] + dist);
-}
+// Compute cumulative distances from a lightly simplified version of the original track.
+// Raw GPS (47k points) has jitter that inflates distance (~77km).
+// Our display simplification (913 points) cuts too many corners (~69.7km).
+// A mild simplification (~0.00002° ≈ 2m tolerance) removes jitter while preserving true path.
+const mildSimplified = turf.simplify(fullLine, {
+  tolerance: 0.000045,
+  highQuality: true,
+});
+const mildCoords = mildSimplified.geometry.coordinates as [number, number][];
+console.log(`Mild simplification: ${coordinates.length} → ${mildCoords.length} points`);
 
-const totalDistanceKm =
-  cumulativeDistances[cumulativeDistances.length - 1];
+const mildCumulativeDistances: number[] = [0];
+for (let i = 1; i < mildCoords.length; i++) {
+  const from = turf.point(mildCoords[i - 1]);
+  const to = turf.point(mildCoords[i]);
+  const dist = turf.distance(from, to, { units: "kilometers" });
+  mildCumulativeDistances.push(mildCumulativeDistances[i - 1] + dist);
+}
+const totalDistanceKm = mildCumulativeDistances[mildCumulativeDistances.length - 1];
+console.log(`Smoothed total distance: ${totalDistanceKm.toFixed(2)} km`);
+
+// Map each display-simplified point to its cumulative distance from the smoothed track
+const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
+  let minDist = Infinity;
+  let closestIdx = 0;
+  for (let i = 0; i < mildCoords.length; i++) {
+    const dx = coord[0] - mildCoords[i][0];
+    const dy = coord[1] - mildCoords[i][1];
+    const dist = dx * dx + dy * dy;
+    if (dist < minDist) {
+      minDist = dist;
+      closestIdx = i;
+    }
+  }
+  return mildCumulativeDistances[closestIdx];
+});
 
 // Map simplified coordinates back to nearest elevation values
 const simplifiedElevations: number[] = simplifiedCoords.map((coord) => {
