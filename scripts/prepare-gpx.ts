@@ -80,25 +80,54 @@ if (ferryDistanceTotal > 0) {
   console.log(`Total ferry distance subtracted: ${ferryDistanceTotal.toFixed(2)} km`);
 }
 
+// Map mild-simplified coordinates to nearest elevation values (for more accurate elevation gain)
+const mildElevations: number[] = mildCoords.map((coord) => {
+  let minDist = Infinity;
+  let closestEle = 0;
+  for (let i = 0; i < coordinates.length; i++) {
+    const dx = coord[0] - coordinates[i][0];
+    const dy = coord[1] - coordinates[i][1];
+    const dist = dx * dx + dy * dy;
+    if (dist < minDist) {
+      minDist = dist;
+      closestEle = elevations[i];
+    }
+  }
+  return closestEle;
+});
+let mildElevGain = 0;
+for (let i = 1; i < mildElevations.length; i++) {
+  if (mildElevations[i] > mildElevations[i - 1]) mildElevGain += mildElevations[i] - mildElevations[i - 1];
+}
+console.log(`Elevation gain (mild, ${mildCoords.length} pts): ${mildElevGain.toFixed(0)} m`);
+
 // Adjusted cumulative distances (ferry rides removed)
 const adjustedMildDistances = mildCumulativeDistances.map((d, i) => d - ferryAdjustments[i]);
 const adjustedTotalKm = adjustedMildDistances[adjustedMildDistances.length - 1];
 console.log(`Adjusted total distance (no ferry): ${adjustedTotalKm.toFixed(2)} km`);
 
-// Map each display-simplified point to its cumulative distance from the smoothed track
+// Map each display-simplified point to its cumulative distance from the smoothed track.
+// Use projection onto the mild track line (not just nearest vertex) for accuracy.
+const mildLine = turf.lineString(mildCoords);
 const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
-  let minDist = Infinity;
-  let closestIdx = 0;
-  for (let i = 0; i < mildCoords.length; i++) {
-    const dx = coord[0] - mildCoords[i][0];
-    const dy = coord[1] - mildCoords[i][1];
-    const dist = dx * dx + dy * dy;
-    if (dist < minDist) {
-      minDist = dist;
-      closestIdx = i;
-    }
+  const pt = turf.point(coord);
+  const snapped = turf.nearestPointOnLine(mildLine, pt, { units: "kilometers" });
+  const segIdx = snapped.properties.index!; // index of the segment start vertex
+
+  // Interpolate the raw distance between the two vertices of the matched segment
+  // (ferry subtraction is NOT applied to the km counter — segments simply skip ferry portions)
+  if (segIdx >= mildCoords.length - 1) {
+    return mildCumulativeDistances[mildCoords.length - 1];
   }
-  return adjustedMildDistances[closestIdx];
+  const segStart = mildCumulativeDistances[segIdx];
+  const segEnd = mildCumulativeDistances[segIdx + 1];
+  const segLen = mildCumulativeDistances[segIdx + 1] - mildCumulativeDistances[segIdx];
+  if (segLen === 0) return segStart;
+  // snapped.properties.location is the distance along the line from its start
+  const locOnLine = snapped.properties.location!; // km from start of mildLine
+  const locInSeg = locOnLine - mildCumulativeDistances[segIdx];
+  const t = Math.max(0, Math.min(1, locInSeg / segLen));
+  return segStart + t * (segEnd - segStart);
 });
 
 // Map simplified coordinates back to nearest elevation values
@@ -129,13 +158,15 @@ const output = {
   geometry: simplified.geometry,
   properties: {
     name: track.name || "Route",
-    totalDistanceKm: Math.round(adjustedTotalKm * 100) / 100,
+    totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
     pointCount: simplifiedCoords.length,
     originalPointCount: coordinates.length,
     bbox,
     center: center.geometry.coordinates,
     cumulativeDistances,
     elevations: simplifiedElevations,
+    mildElevations,
+    mildCumulativeDistances,
   },
 };
 

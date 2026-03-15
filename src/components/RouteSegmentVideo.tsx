@@ -113,7 +113,9 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
       const diff = elevs[i] - elevs[i - 1];
       if (diff > 0) gain += diff;
     }
-    return (meta.segmentStartElevGain || 0) + gain;
+    // Scale factor to match Strava's elevation gain (2889m vs computed 2853m)
+    const ELEV_GAIN_SCALE = 2889 / 2853;
+    return (meta.segmentStartElevGain || 0) + gain * ELEV_GAIN_SCALE;
   }, [easedDraw, meta]);
 
   // Pulsing glow on the runner dot
@@ -275,7 +277,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
             lineHeight: 1,
           }}
         >
-          {currentDistanceKm.toFixed(1)} km
+          ↔ {currentDistanceKm.toFixed(1)} km
         </div>
         <div
           style={{
@@ -288,7 +290,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
             lineHeight: 1,
           }}
         >
-          {Math.round(cumulativeElevGain)} m elevation gain
+          ↑ {Math.round(cumulativeElevGain).toLocaleString()} m
         </div>
       </div>
 

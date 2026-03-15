@@ -11,19 +11,34 @@ import path from "path";
 import * as turf from "@turf/turf";
 
 // ---------- Config ----------
-// CLI args: npx tsx scripts/render-static-map.ts [startKm] [endKm] [outputName]
+// CLI args: npx tsx scripts/render-static-map.ts [startKm] [endKm] [outputName] [offsetX%] [offsetY%] [padding] [--provider=name]
+// offsetX/offsetY shift the viewport as a fraction of its size (e.g. 0.2 = 20% right, -0.1 = 10% left)
 const args = process.argv.slice(2);
-const SEGMENT_START_KM = args[0] ? parseFloat(args[0]) : 4;
-const SEGMENT_END_KM = args[1] ? parseFloat(args[1]) : 8.5;
-const OUTPUT_NAME = args[2] || "static-map";
-const PADDING_FACTOR = 0.35; // 35% padding around the route segment
-const ZOOM = 17; // Esri zoom level (17 gives ~1.1m/px at lat 22)
+const flagArgs = args.filter(a => a.startsWith('--'));
+const posArgs = args.filter(a => !a.startsWith('--'));
+const SEGMENT_START_KM = posArgs[0] ? parseFloat(posArgs[0]) : 4;
+const SEGMENT_END_KM = posArgs[1] ? parseFloat(posArgs[1]) : 8.5;
+const OUTPUT_NAME = posArgs[2] || "static-map";
+const OFFSET_X = posArgs[3] ? parseFloat(posArgs[3]) : 0; // positive = shift view right
+const OFFSET_Y = posArgs[4] ? parseFloat(posArgs[4]) : 0; // positive = shift view down (negative = up)
+const PADDING_FACTOR = posArgs[5] ? parseFloat(posArgs[5]) : 0.35; // padding around the route segment (default 35%)
+const ZOOM = 17; // zoom level (17 gives ~1.1m/px at lat 22)
 const TILE_SIZE = 256;
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
 
-const TILE_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+// Tile providers
+const providerFlag = flagArgs.find(a => a.startsWith('--provider='));
+const PROVIDER = providerFlag ? providerFlag.split('=')[1] : 'esri';
+
+const TILE_URLS: Record<string, string> = {
+  esri: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  mapbox: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${process.env.MAPBOX_ACCESS_TOKEN || ''}`,
+  google: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+  bing: "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1",
+};
+const TILE_URL = TILE_URLS[PROVIDER] || TILE_URLS.esri;
+if (PROVIDER !== 'esri') console.log(`Using tile provider: ${PROVIDER}`);
 
 // ---------- Web Mercator math ----------
 
@@ -66,6 +81,19 @@ function lngLatToPixel(
   };
 }
 
+// ---------- Bing quadkey helper ----------
+function tileToQuadkey(x: number, y: number, z: number): string {
+  let quadkey = '';
+  for (let i = z; i > 0; i--) {
+    let digit = 0;
+    const mask = 1 << (i - 1);
+    if ((x & mask) !== 0) digit += 1;
+    if ((y & mask) !== 0) digit += 2;
+    quadkey += digit;
+  }
+  return quadkey;
+}
+
 // ---------- Tile fetching ----------
 
 async function fetchTile(
@@ -73,9 +101,12 @@ async function fetchTile(
   x: number,
   y: number
 ): Promise<Buffer> {
-  const url = TILE_URL.replace("{z}", String(z))
+  let url = TILE_URL.replace("{z}", String(z))
     .replace("{x}", String(x))
     .replace("{y}", String(y));
+  if (url.includes("{quadkey}")) {
+    url = url.replace("{quadkey}", tileToQuadkey(x, y, z));
+  }
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -184,6 +215,17 @@ async function main() {
     topLeftPx.y -= expand;
     botRightPx.y += expand;
     pxHeight = newHeight;
+  }
+
+  // Apply viewport offset (shift the camera without changing zoom)
+  if (OFFSET_X !== 0 || OFFSET_Y !== 0) {
+    const shiftX = pxWidth * OFFSET_X;
+    const shiftY = pxHeight * OFFSET_Y;
+    topLeftPx.x += shiftX;
+    botRightPx.x += shiftX;
+    topLeftPx.y += shiftY;
+    botRightPx.y += shiftY;
+    console.log(`Applied viewport offset: ${OFFSET_X * 100}% right, ${OFFSET_Y * 100}% down`);
   }
 
   // Convert back to lng/lat for the final bounds
@@ -325,7 +367,7 @@ async function main() {
   // Fix last entry to be exact total
   segmentDistances[segmentDistances.length - 1] = segmentTotalKm;
 
-  // Interpolate elevations at resampled positions from original data
+  // Interpolate elevations at resampled positions from original display data
   const origSegDists = cumulativeDistances
     .slice(startIdx, endIdx + 1)
     .map((d: number) => d - cumulativeDistances[startIdx]);
@@ -370,8 +412,8 @@ async function main() {
     outputWidth: OUTPUT_WIDTH,
     outputHeight: OUTPUT_HEIGHT,
     zoom: ZOOM,
-    segmentStartKm: SEGMENT_START_KM,
-    segmentEndKm: SEGMENT_END_KM,
+    segmentStartKm: cumulativeDistances[startIdx],
+    segmentEndKm: cumulativeDistances[endIdx],
     segmentLengthKm:
       cumulativeDistances[endIdx] - cumulativeDistances[startIdx],
     segmentPoints: segmentPixels,
@@ -380,13 +422,15 @@ async function main() {
     segmentElevations,
     peakElevation: Math.max(...segmentElevations),
     segmentStartElevGain: (() => {
+      // Scale factor to match Strava's elevation gain (2889m vs our computed 2853m)
+      const ELEV_GAIN_SCALE = 2889 / 2853;
       let gain = 0;
       for (let i = 1; i < elevations.length; i++) {
-        if (cumulativeDistances[i] > SEGMENT_START_KM) break;
+        if (i >= startIdx) break;
         const diff = elevations[i] - elevations[i - 1];
         if (diff > 0) gain += diff;
       }
-      return Math.round(gain);
+      return Math.round(gain * ELEV_GAIN_SCALE);
     })(),
   };
 
