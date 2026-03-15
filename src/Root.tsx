@@ -1,5 +1,7 @@
 import { Composition } from "remotion";
 import { MapRouteVideo } from "./components/MapRouteVideo";
+import { TseungKwanO } from "./components/TseungKwanO";
+import { TseungKwanOBingAerial } from "./components/TseungKwanOBingAerial";
 import { DevilsPeak } from "./components/StaticRouteVideo";
 import { SiuMaShan } from "./components/SiuMaShan";
 import { TaiTam } from "./components/TaiTam";
@@ -41,6 +43,19 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 8,
+        }}
+      />
+      <Composition
+        id="TseungKwanO"
+        // @ts-expect-error Remotion Composition generics
+        component={TseungKwanO}
+        durationInFrames={FPS * 20}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          routeColor: "#ff4444",
+          routeWidth: 20,
         }}
       />
       <Composition
@@ -187,9 +202,9 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="KowloonMongKok"
+        id="01-TseungKwanO-BingAerial"
         // @ts-expect-error Remotion Composition generics
-        component={KowloonMongKok}
+        component={TseungKwanOBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}
@@ -200,7 +215,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="DevilsPeak-BingAerial"
+        id="02-DevilsPeak-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={DevilsPeakBingAerial}
         durationInFrames={FPS * 20}
@@ -213,7 +228,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="SiuMaShan-BingAerial"
+        id="03-SiuMaShan-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={SiuMaShanBingAerial}
         durationInFrames={FPS * 20}
@@ -226,7 +241,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="TaiTam-BingAerial"
+        id="04-TaiTam-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={TaiTamBingAerial}
         durationInFrames={FPS * 20}
@@ -239,7 +254,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="StanleyMound-BingAerial"
+        id="05-StanleyMound-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={StanleyMoundBingAerial}
         durationInFrames={FPS * 20}
@@ -252,7 +267,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="MountNicholson-BingAerial"
+        id="06-MountNicholson-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={MountNicholsonBingAerial}
         durationInFrames={FPS * 20}
@@ -265,7 +280,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="WanChaiGap-BingAerial"
+        id="07-WanChaiGap-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={WanChaiGapBingAerial}
         durationInFrames={FPS * 20}
@@ -278,7 +293,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="Central-BingAerial"
+        id="08-Central-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={CentralBingAerial}
         durationInFrames={FPS * 20}
@@ -291,9 +306,9 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="Kowloon-BingAerial"
+        id="09-KowloonMongKok-BingAerial"
         // @ts-expect-error Remotion Composition generics
-        component={KowloonBingAerial}
+        component={KowloonMongKok}
         durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}
@@ -304,20 +319,7 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="MongKok-BingAerial"
-        // @ts-expect-error Remotion Composition generics
-        component={MongKokBingAerial}
-        durationInFrames={FPS * 20}
-        fps={FPS}
-        width={3840}
-        height={2160}
-        defaultProps={{
-          routeColor: "#ff4444",
-          routeWidth: 20,
-        }}
-      />
-      <Composition
-        id="BeaconHill-BingAerial"
+        id="10-BeaconHill-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={BeaconHillBingAerial}
         durationInFrames={FPS * 20}
@@ -330,9 +332,35 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
-        id="SaiKung-BingAerial"
+        id="11-SaiKung-BingAerial"
         // @ts-expect-error Remotion Composition generics
         component={SaiKungBingAerial}
+        durationInFrames={FPS * 20}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          routeColor: "#ff4444",
+          routeWidth: 20,
+        }}
+      />
+      <Composition
+        id="Backup-Kowloon-BingAerial"
+        // @ts-expect-error Remotion Composition generics
+        component={KowloonBingAerial}
+        durationInFrames={FPS * 20}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          routeColor: "#ff4444",
+          routeWidth: 20,
+        }}
+      />
+      <Composition
+        id="Backup-MongKok-BingAerial"
+        // @ts-expect-error Remotion Composition generics
+        component={MongKokBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}
