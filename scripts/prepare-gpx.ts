@@ -58,6 +58,33 @@ for (let i = 1; i < mildCoords.length; i++) {
 const totalDistanceKm = mildCumulativeDistances[mildCumulativeDistances.length - 1];
 console.log(`Smoothed total distance: ${totalDistanceKm.toFixed(2)} km`);
 
+// Detect ferry rides: segments where consecutive mildly-simplified points are >500m apart
+// and cross water (large lat change). Subtract ferry distances from cumulative totals.
+const FERRY_GAP_THRESHOLD_KM = 0.5;
+let ferryDistanceTotal = 0;
+const ferryAdjustments: number[] = new Array(mildCoords.length).fill(0);
+for (let i = 1; i < mildCoords.length; i++) {
+  const gap = mildCumulativeDistances[i] - mildCumulativeDistances[i - 1];
+  const latDiff = Math.abs(mildCoords[i][1] - mildCoords[i - 1][1]);
+  // Ferry: large gap AND significant latitude change AND the points are in the harbour area
+  // (lat ~22.28-22.30, lng ~114.15-114.18 = Victoria Harbour)
+  const avgLat = (mildCoords[i][1] + mildCoords[i - 1][1]) / 2;
+  const isHarbourArea = avgLat > 22.28 && avgLat < 22.30;
+  if (gap > FERRY_GAP_THRESHOLD_KM && latDiff > 0.003 && isHarbourArea) {
+    console.log(`Ferry detected at km ${mildCumulativeDistances[i - 1].toFixed(1)}-${mildCumulativeDistances[i].toFixed(1)} (${gap.toFixed(2)} km)`);
+    ferryDistanceTotal += gap;
+  }
+  ferryAdjustments[i] = ferryDistanceTotal;
+}
+if (ferryDistanceTotal > 0) {
+  console.log(`Total ferry distance subtracted: ${ferryDistanceTotal.toFixed(2)} km`);
+}
+
+// Adjusted cumulative distances (ferry rides removed)
+const adjustedMildDistances = mildCumulativeDistances.map((d, i) => d - ferryAdjustments[i]);
+const adjustedTotalKm = adjustedMildDistances[adjustedMildDistances.length - 1];
+console.log(`Adjusted total distance (no ferry): ${adjustedTotalKm.toFixed(2)} km`);
+
 // Map each display-simplified point to its cumulative distance from the smoothed track
 const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
   let minDist = Infinity;
@@ -71,7 +98,7 @@ const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
       closestIdx = i;
     }
   }
-  return mildCumulativeDistances[closestIdx];
+  return adjustedMildDistances[closestIdx];
 });
 
 // Map simplified coordinates back to nearest elevation values
@@ -102,7 +129,7 @@ const output = {
   geometry: simplified.geometry,
   properties: {
     name: track.name || "Route",
-    totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
+    totalDistanceKm: Math.round(adjustedTotalKm * 100) / 100,
     pointCount: simplifiedCoords.length,
     originalPointCount: coordinates.length,
     bbox,
