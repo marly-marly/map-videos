@@ -21,6 +21,7 @@ export interface SegmentMeta {
   segmentLengthKm: number;
   segmentStartKm: number;
   peakElevation: number;
+  segmentStartElevGain: number;
   outputWidth: number;
   outputHeight: number;
 }
@@ -112,7 +113,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
       const diff = elevs[i] - elevs[i - 1];
       if (diff > 0) gain += diff;
     }
-    return gain;
+    return (meta.segmentStartElevGain || 0) + gain;
   }, [easedDraw, meta]);
 
   // Pulsing glow on the runner dot

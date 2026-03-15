@@ -380,6 +380,15 @@ async function main() {
     segmentDistances,
     segmentElevations,
     peakElevation: Math.max(...segmentElevations),
+    segmentStartElevGain: (() => {
+      let gain = 0;
+      for (let i = 1; i < elevations.length; i++) {
+        if (cumulativeDistances[i] > SEGMENT_START_KM) break;
+        const diff = elevations[i] - elevations[i - 1];
+        if (diff > 0) gain += diff;
+      }
+      return Math.round(gain);
+    })(),
   };
 
   const metaPath = path.join(outDir, `${OUTPUT_NAME}-meta.json`);

@@ -2561,5 +2561,6 @@
     132.58882182534416,
     135.5
   ],
-  "peakElevation": 400.7
+  "peakElevation": 400.7,
+  "segmentStartElevGain": 770
 }
