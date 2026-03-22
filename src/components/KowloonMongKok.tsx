@@ -18,5 +18,6 @@ export const KowloonMongKok: React.FC<KowloonMongKokProps> = ({
     routeWidth={routeWidth}
     mapFile="kowloon-mong-kok.png"
     metaData={meta}
+    cameraEffect={{ startZoom: 1.4, endZoom: 1.0, anchor: [0.41, 0.88] }}
   />
 );

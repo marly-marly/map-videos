@@ -18,5 +18,6 @@ export const CentralBingAerial: React.FC<CentralBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="central-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.0, endZoom: 1.2, anchor: [0.51, 0.21] }}
   />
 );

@@ -18,5 +18,6 @@ export const MountNicholsonBingAerial: React.FC<MountNicholsonBingAerialProps> =
     routeWidth={routeWidth}
     mapFile="mount-nicholson-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.0, endZoom: 1.25, anchor: [0.44, 0.21] }}
   />
 );

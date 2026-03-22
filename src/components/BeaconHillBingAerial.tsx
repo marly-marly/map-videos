@@ -18,5 +18,6 @@ export const BeaconHillBingAerial: React.FC<BeaconHillBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="beacon-hill-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.25, endZoom: 1.0, anchor: [0.21, 0.75] }}
   />
 );

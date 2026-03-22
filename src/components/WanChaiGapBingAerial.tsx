@@ -18,5 +18,6 @@ export const WanChaiGapBingAerial: React.FC<WanChaiGapBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="wan-chai-gap-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.3, endZoom: 1.0, anchor: [0.71, 0.76] }}
   />
 );

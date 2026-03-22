@@ -18,5 +18,6 @@ export const SiuMaShanBingAerial: React.FC<SiuMaShanBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="siu-ma-shan-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.25, endZoom: 1.0, anchor: [0.64, 0.22] }}
   />
 );

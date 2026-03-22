@@ -18,5 +18,6 @@ export const TaiTamBingAerial: React.FC<TaiTamBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="tai-tam-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.0, endZoom: 1.2, anchor: [0.44, 0.79] }}
   />
 );
