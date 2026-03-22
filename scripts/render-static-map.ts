@@ -22,7 +22,8 @@ const OUTPUT_NAME = posArgs[2] || "static-map";
 const OFFSET_X = posArgs[3] ? parseFloat(posArgs[3]) : 0; // positive = shift view right
 const OFFSET_Y = posArgs[4] ? parseFloat(posArgs[4]) : 0; // positive = shift view down (negative = up)
 const PADDING_FACTOR = posArgs[5] ? parseFloat(posArgs[5]) : 0.35; // padding around the route segment (default 35%)
-const ZOOM = 17; // zoom level (17 gives ~1.1m/px at lat 22)
+const zoomFlag = flagArgs.find(a => a.startsWith('--zoom='));
+const ZOOM = zoomFlag ? parseInt(zoomFlag.split('=')[1]) : 17;
 const TILE_SIZE = 256;
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
@@ -36,6 +37,7 @@ const TILE_URLS: Record<string, string> = {
   mapbox: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${process.env.MAPBOX_ACCESS_TOKEN || ''}`,
   google: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
   bing: "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1",
+  hillshade: "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
 };
 const TILE_URL = TILE_URLS[PROVIDER] || TILE_URLS.esri;
 if (PROVIDER !== 'esri') console.log(`Using tile provider: ${PROVIDER}`);

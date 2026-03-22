@@ -27,6 +27,7 @@ import { BeaconHillBingAerial } from "./components/BeaconHillBingAerial";
 import { SaiKungBingAerial } from "./components/SaiKungBingAerial";
 import { PhotosDevilsPeak } from "./components/PhotosDevilsPeak";
 import { PhotosDevilsPeak02 } from "./components/PhotosDevilsPeak02";
+import { FullRouteOverview } from "./components/FullRouteOverview";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -345,6 +346,15 @@ export const RemotionRoot: React.FC = () => {
           routeColor: "#ff4444",
           routeWidth: 20,
         }}
+      />
+      <Composition
+        id="FullRouteOverview"
+        // @ts-expect-error Remotion Composition generics
+        component={FullRouteOverview}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
       />
       <Composition
         id="Photos-DevilsPeak"
