@@ -18,5 +18,6 @@ export const TseungKwanOBingAerial: React.FC<TseungKwanOBingAerialProps> = ({
     routeWidth={routeWidth}
     mapFile="tseung-kwan-o-bing-aerial.png"
     metaData={typedMeta}
+    cameraEffect={{ startZoom: 1.15, endZoom: 1.0, anchor: [0.5, 0.5] }}
   />
 );

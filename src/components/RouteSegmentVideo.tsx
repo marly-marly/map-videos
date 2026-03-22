@@ -6,11 +6,21 @@ import {
   staticFile,
 } from "remotion";
 
+export interface CameraEffect {
+  /** Starting zoom level (1 = no zoom, 1.2 = 20% zoomed in) */
+  startZoom: number;
+  /** Ending zoom level */
+  endZoom: number;
+  /** Anchor point for zoom: 0-1 range, e.g. [0.5, 0.5] = center */
+  anchor?: [number, number];
+}
+
 export interface RouteSegmentVideoProps {
   routeColor: string;
   routeWidth: number;
   mapFile: string;
   metaData: SegmentMeta;
+  cameraEffect?: CameraEffect;
 }
 
 export interface SegmentMeta {
@@ -31,6 +41,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   routeWidth,
   mapFile,
   metaData,
+  cameraEffect,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
@@ -121,8 +132,26 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   // Pulsing glow on the runner dot
   const glowPulse = 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2);
 
+  // Camera zoom effect
+  const cameraZoom = cameraEffect
+    ? cameraEffect.startZoom + (cameraEffect.endZoom - cameraEffect.startZoom) * progress
+    : 1;
+  const cameraAnchor = cameraEffect?.anchor ?? [0.5, 0.5];
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
+      {/* Zoomable map + route container */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          transform: `scale(${cameraZoom})`,
+          transformOrigin: `${cameraAnchor[0] * 100}% ${cameraAnchor[1] * 100}%`,
+        }}
+      >
       {/* Satellite map background */}
       <img
         src={staticFile(mapFile)}
@@ -237,6 +266,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
           </>
         )}
       </svg>
+      </div>
 
       {/* Cinematic vignette */}
       <div

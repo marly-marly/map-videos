@@ -25,6 +25,8 @@ import { KowloonBingAerial } from "./components/KowloonBingAerial";
 import { MongKokBingAerial } from "./components/MongKokBingAerial";
 import { BeaconHillBingAerial } from "./components/BeaconHillBingAerial";
 import { SaiKungBingAerial } from "./components/SaiKungBingAerial";
+import { PhotosDevilsPeak } from "./components/PhotosDevilsPeak";
+import { PhotosDevilsPeak02 } from "./components/PhotosDevilsPeak02";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -343,6 +345,24 @@ export const RemotionRoot: React.FC = () => {
           routeColor: "#ff4444",
           routeWidth: 20,
         }}
+      />
+      <Composition
+        id="Photos-DevilsPeak"
+        // @ts-expect-error Remotion Composition generics
+        component={PhotosDevilsPeak}
+        durationInFrames={FPS * 10}
+        fps={FPS}
+        width={3840}
+        height={2160}
+      />
+      <Composition
+        id="Photos-DevilsPeak-02"
+        // @ts-expect-error Remotion Composition generics
+        component={PhotosDevilsPeak02}
+        durationInFrames={FPS * 10}
+        fps={FPS}
+        width={3840}
+        height={2160}
       />
       <Composition
         id="Backup-Kowloon-BingAerial"

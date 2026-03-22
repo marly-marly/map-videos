@@ -68,7 +68,9 @@
       "Bash(cp \"$W/public/central.png\" public/central.png)",
       "Bash(cp \"$W/src/components/WanChaiGap.tsx\" src/components/WanChaiGap.tsx)",
       "Bash(cp \"$W/src/Root.tsx\" src/Root.tsx)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(ls -la public/*.png)",
+      "Bash(gh pr:*)"
     ]
   }
 }
