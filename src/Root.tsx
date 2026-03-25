@@ -28,6 +28,9 @@ import { SaiKungBingAerial } from "./components/SaiKungBingAerial";
 import { PhotosDevilsPeak } from "./components/PhotosDevilsPeak";
 import { PhotosDevilsPeak02 } from "./components/PhotosDevilsPeak02";
 import { FullRouteOverview } from "./components/FullRouteOverview";
+import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
+import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
+import { GPXSegment } from "./components/GPXSegment";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -355,6 +358,72 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={3840}
         height={2160}
+      />
+      <Composition
+        id="FullRouteOverview-BW"
+        // @ts-expect-error Remotion Composition generics
+        component={FullRouteOverviewBW}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
+      />
+      <Composition
+        id="FullRouteOverview-Peaks"
+        // @ts-expect-error Remotion Composition generics
+        component={FullRouteOverviewPeaks}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
+      />
+      <Composition
+        id="FullRouteOverview-NoHUD"
+        // @ts-expect-error Remotion Composition generics
+        component={FullRouteOverview}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          showHud: false,
+        }}
+      />
+      <Composition
+        id="FullRouteOverview-BW-NoHUD"
+        // @ts-expect-error Remotion Composition generics
+        component={FullRouteOverviewBW}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          showHud: false,
+        }}
+      />
+      <Composition
+        id="GPXSegment"
+        // @ts-expect-error Remotion Composition generics
+        component={GPXSegment}
+        durationInFrames={FPS * 20}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          gpxFile: "route.gpx",
+          startKm: 0,
+          endKm: 9999,
+          provider: "bing" as const,
+          routeColor: "#ff4444",
+          routeWidth: 20,
+          showHud: true,
+          showPreviousRoute: false,
+          zoom: 15,
+          padding: 0.35,
+          offsetX: 0,
+          offsetY: 0,
+          durationSeconds: 20,
+        }}
       />
       <Composition
         id="Photos-DevilsPeak"
