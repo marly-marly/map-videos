@@ -15,7 +15,8 @@ const typedMeta = meta as unknown as SegmentMeta;
 const DISPLAY_TOTAL_KM = 71.83;
 const KM_SCALE = DISPLAY_TOTAL_KM / typedMeta.segmentLengthKm;
 
-export const FullRouteOverview: React.FC = () => {
+
+export const FullRouteOverview: React.FC<{ showHud?: boolean }> = ({ showHud = true }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
   const m = typedMeta;
@@ -127,11 +128,12 @@ export const FullRouteOverview: React.FC = () => {
   // Show runner dot only during draw phase
   const showRunner = drawProgress > 0 && drawProgress < 1;
 
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
       {/* Terrain map background */}
       <img
-        src={staticFile("full-route-overview.png")}
+        src={staticFile("full-route-overview-composite.png")}
         style={{
           position: "absolute",
           top: 0,
@@ -220,6 +222,8 @@ export const FullRouteOverview: React.FC = () => {
             />
           </>
         )}
+
+
       </svg>
 
       {/* Vignette */}
@@ -237,43 +241,45 @@ export const FullRouteOverview: React.FC = () => {
       />
 
       {/* HUD */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 80,
-          left: 80,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          zIndex: 10,
-          opacity: hudOpacity,
-        }}
-      >
+      {showHud && (
         <div
           style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 120,
-            fontWeight: 700,
-            color: "white",
-            textShadow: "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
-            lineHeight: 1,
+            position: "absolute",
+            bottom: 80,
+            left: 80,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            zIndex: 10,
+            opacity: hudOpacity,
           }}
         >
-          ↔ {currentDistanceKm.toFixed(1)} km
+          <div
+            style={{
+              fontFamily: "'Courier New', Courier, monospace",
+              fontSize: 120,
+              fontWeight: 700,
+              color: "white",
+              textShadow: "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+              lineHeight: 1,
+            }}
+          >
+            ↔ {currentDistanceKm.toFixed(1)} km
+          </div>
+          <div
+            style={{
+              fontFamily: "'Courier New', Courier, monospace",
+              fontSize: 72,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.85)",
+              textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+              lineHeight: 1,
+            }}
+          >
+            ↑ {Math.round(cumulativeElevGain).toLocaleString()} m
+          </div>
         </div>
-        <div
-          style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 72,
-            fontWeight: 500,
-            color: "rgba(255,255,255,0.85)",
-            textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-            lineHeight: 1,
-          }}
-        >
-          ↑ {Math.round(cumulativeElevGain).toLocaleString()} m
-        </div>
-      </div>
+      )}
     </AbsoluteFill>
   );
 };

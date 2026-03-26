@@ -38,6 +38,8 @@ const TILE_URLS: Record<string, string> = {
   google: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
   bing: "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1",
   hillshade: "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+  ocean: "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
+  cartodark: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
 };
 const TILE_URL = TILE_URLS[PROVIDER] || TILE_URLS.esri;
 if (PROVIDER !== 'esri') console.log(`Using tile provider: ${PROVIDER}`);

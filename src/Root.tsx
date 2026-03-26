@@ -30,7 +30,7 @@ import { PhotosDevilsPeak02 } from "./components/PhotosDevilsPeak02";
 import { FullRouteOverview } from "./components/FullRouteOverview";
 import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
 import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
-import { GPXSegment } from "./components/GPXSegment";
+import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -403,8 +403,8 @@ export const RemotionRoot: React.FC = () => {
       />
       <Composition
         id="GPXSegment"
-        // @ts-expect-error Remotion Composition generics
         component={GPXSegment}
+        schema={gpxSegmentSchema}
         durationInFrames={FPS * 20}
         fps={FPS}
         width={3840}

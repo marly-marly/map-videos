@@ -11,6 +11,7 @@ import {
   useVideoConfig,
   staticFile,
 } from "remotion";
+import { z } from "zod";
 import { parseGPX } from "../lib/gpx-browser-parser";
 import {
   processRoute,
@@ -19,6 +20,22 @@ import {
 } from "../lib/route-processor";
 import { computeViewport, coordsToPixels } from "../lib/tile-viewport";
 import { TileMapBackground } from "./TileMapBackground";
+
+export const gpxSegmentSchema = z.object({
+  gpxFile: z.string().describe("GPX filename in public/ folder"),
+  startKm: z.number().min(0).describe("Start km (0 = route start)"),
+  endKm: z.number().min(0).describe("End km (9999 = full route)"),
+  provider: z.enum(["esri", "bing", "hillshade", "terrain-composite"]).describe("Map tile provider"),
+  routeColor: z.string().describe("Route line color"),
+  routeWidth: z.number().min(1).max(50).describe("Route line width"),
+  showHud: z.boolean().describe("Show distance + elevation HUD"),
+  showPreviousRoute: z.boolean().describe("Show dim trail of previous route"),
+  zoom: z.number().min(10).max(19).describe("Tile zoom level (17=detail, 14=overview)"),
+  padding: z.number().min(0).max(2).describe("Padding around segment (0.35 = 35%)"),
+  offsetX: z.number().describe("Viewport shift X (fraction, 0.1 = 10% right)"),
+  offsetY: z.number().describe("Viewport shift Y (fraction, 0.1 = 10% down)"),
+  durationSeconds: z.number().min(1).max(300).describe("Duration in seconds"),
+});
 
 export interface GPXSegmentProps {
   /** GPX filename in public/ folder */
