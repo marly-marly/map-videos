@@ -31,6 +31,7 @@ import { FullRouteOverview } from "./components/FullRouteOverview";
 import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
 import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
 import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
+import { PhotoSlideshow, photoSlideshowSchema } from "./components/PhotoSlideshow";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -423,6 +424,28 @@ export const RemotionRoot: React.FC = () => {
           offsetX: 0,
           offsetY: 0,
           durationSeconds: 20,
+        }}
+      />
+      <Composition
+        id="PhotoSlideshow"
+        component={PhotoSlideshow}
+        schema={photoSlideshowSchema}
+        durationInFrames={FPS * 10}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          photos: "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg,DSC09430.jpg,DSC09431.jpg,DSC09440.jpg,DSC09441.jpg",
+          photosFolder: "photos-devils-peak",
+          style: "ken-burns" as const,
+          transitionType: "crossfade" as const,
+          transitionDurationFrames: 9,
+          photoDurationSeconds: 2,
+          backgroundColor: "#000000",
+          borderStyle: "none" as const,
+          zoomIntensity: 15,
+          zoomDirection: "alternate" as const,
+          randomSeed: 42,
         }}
       />
       <Composition
