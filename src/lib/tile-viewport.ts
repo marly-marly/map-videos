@@ -173,15 +173,17 @@ export function computeViewport(
 
   // Build tile list
   const tiles: TileInfo[] = [];
-  for (let ty = tileMinY; ty <= safeTileMaxY; ty++) {
-    for (let tx = tileMinX; tx <= safeTileMaxX; tx++) {
-      tiles.push({
-        x: tx,
-        y: ty,
-        pixelLeft: (tx - tileMinX) * TILE_SIZE,
-        pixelTop: (ty - tileMinY) * TILE_SIZE,
-        url: buildTileUrl(provider, tx, ty, zoom),
-      });
+  {
+    for (let ty = tileMinY; ty <= safeTileMaxY; ty++) {
+      for (let tx = tileMinX; tx <= safeTileMaxX; tx++) {
+        tiles.push({
+          x: tx,
+          y: ty,
+          pixelLeft: (tx - tileMinX) * TILE_SIZE,
+          pixelTop: (ty - tileMinY) * TILE_SIZE,
+          url: buildTileUrl(provider, tx, ty, zoom),
+        });
+      }
     }
   }
 

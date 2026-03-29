@@ -218,7 +218,9 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
     });
   }, [segment, startZoomLevel, effectivePadding, oX, oY, provider]);
 
-  // Second viewport for tile transition (only when providers differ)
+  // Second viewport for tile transition (only when providers differ).
+  // Uses the SAME zoom as the start provider so both tile grids align perfectly.
+  // The zoomReduction only lowers the wider provider's zoom to reduce tile count.
   const hasTileTransition = providerEnd !== provider;
   const viewportEnd = useMemo(() => {
     if (!segment || !hasTileTransition) return null;

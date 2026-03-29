@@ -59,33 +59,50 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
     return urls;
   }, [viewport, style, gridWidth, gridHeight]);
 
-  // Delay render until all tiles are loaded
+  // Delay render until all tiles are loaded. Retry failed tiles up to 3 times
+  // to handle network throttling from many concurrent requests.
+  const MAX_RETRIES = 3;
   const [handle] = useState(() => delayRender("Loading map tiles", { timeoutInMilliseconds: 120000 }));
   const loadedCount = useRef(0);
   const totalTiles = allTileUrls.length;
   const continued = useRef(false);
+  const retryCount = useRef<Map<string, number>>(new Map());
+
+  const checkDone = useCallback(() => {
+    if (loadedCount.current >= totalTiles && !continued.current) {
+      continued.current = true;
+      continueRender(handle);
+    }
+  }, [handle, totalTiles]);
 
   const onTileLoad = useCallback(() => {
     loadedCount.current++;
-    if (loadedCount.current >= totalTiles && !continued.current) {
-      continued.current = true;
-      continueRender(handle);
-    }
-  }, [handle, totalTiles]);
+    checkDone();
+  }, [checkDone]);
 
-  const onTileError = useCallback(() => {
-    // Count errors as "loaded" so we don't block forever
-    loadedCount.current++;
-    if (loadedCount.current >= totalTiles && !continued.current) {
-      continued.current = true;
-      continueRender(handle);
+  const onTileError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const src = img.src;
+    const retries = retryCount.current.get(src) || 0;
+    if (retries < MAX_RETRIES) {
+      // Retry by resetting src after a short delay
+      retryCount.current.set(src, retries + 1);
+      setTimeout(() => {
+        img.src = "";
+        img.src = src;
+      }, 500 * (retries + 1));
+    } else {
+      // Give up on this tile after max retries
+      loadedCount.current++;
+      checkDone();
     }
-  }, [handle, totalTiles]);
+  }, [checkDone]);
 
   // Reset on tile URL changes
   useEffect(() => {
     loadedCount.current = 0;
     continued.current = false;
+    retryCount.current.clear();
   }, [allTileUrls]);
 
   const containerStyle: React.CSSProperties = {
