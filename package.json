@@ -23,6 +23,7 @@
     "@remotion/bundler": "4.0.277",
     "@remotion/renderer": "4.0.277",
     "@types/react": "^18.3.12",
+    "prettier": "^3.8.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

@@ -31,7 +31,10 @@ import { FullRouteOverview } from "./components/FullRouteOverview";
 import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
 import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
 import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
-import { PhotoSlideshow, photoSlideshowSchema } from "./components/PhotoSlideshow";
+import {
+  PhotoSlideshow,
+  photoSlideshowSchema,
+} from "./components/PhotoSlideshow";
 
 const FPS = 30;
 const DURATION_SECONDS = 60;
@@ -411,19 +414,33 @@ export const RemotionRoot: React.FC = () => {
         width={3840}
         height={2160}
         defaultProps={{
-          gpxFile: "route.gpx",
+          gpxFile: "MountDavisRoute.gpx",
           startKm: 0,
           endKm: 9999,
-          provider: "bing" as const,
-          routeColor: "#ff4444",
-          routeWidth: 20,
-          showHud: true,
-          showPreviousRoute: false,
-          zoom: 15,
-          padding: 0.35,
-          offsetX: 0,
-          offsetY: 0,
           durationSeconds: 20,
+          provider: "ocean-composite" as const,
+          providerEnd: "bing" as const,
+          tileTransitionStart: 31,
+          tileTransitionEnd: 50,
+          zoom: 18,
+          zoomReduction: 2,
+          cameraStartZoom: 2,
+          cameraEndZoom: 15,
+          cameraZoomDelay: 15,
+          cameraZoomEndDelay: 10,
+          cameraAnchorX: 19,
+          cameraAnchorY: 34,
+          padding: 0.35,
+          offsetX: 28,
+          offsetY: 15,
+          routeColor: "#ff4444",
+          routeWidth: 2,
+          dotSize: 17,
+          dotPulseSpeed: 50,
+          routeGlow: 124,
+          routeCasing: 65,
+          showPreviousRoute: false,
+          showHud: false,
         }}
       />
       <Composition
@@ -435,7 +452,8 @@ export const RemotionRoot: React.FC = () => {
         width={3840}
         height={2160}
         defaultProps={{
-          photos: "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg,DSC09430.jpg,DSC09431.jpg,DSC09440.jpg,DSC09441.jpg",
+          photos:
+            "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg,DSC09430.jpg,DSC09431.jpg,DSC09440.jpg,DSC09441.jpg",
           photosFolder: "photos-devils-peak",
           style: "ken-burns" as const,
           transitionType: "crossfade" as const,

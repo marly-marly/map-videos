@@ -154,13 +154,27 @@ export function computeViewport(
   const tileMinY = Math.floor(topLeftPx.y / TILE_SIZE);
   const tileMaxY = Math.floor(botRightPx.y / TILE_SIZE);
 
-  const tilesX = tileMaxX - tileMinX + 1;
-  const tilesY = tileMaxY - tileMinY + 1;
+  let tilesX = tileMaxX - tileMinX + 1;
+  let tilesY = tileMaxY - tileMinY + 1;
+
+  // Safety cap: prevent browser crash from too many tiles
+  const MAX_TILES = 10000;
+  if (tilesX * tilesY > MAX_TILES) {
+    console.warn(`Tile count ${tilesX * tilesY} exceeds limit ${MAX_TILES} — reduce zoom or narrow the segment`);
+    // Trim tiles symmetrically to stay within budget
+    while (tilesX * tilesY > MAX_TILES) {
+      if (tilesX > tilesY) tilesX--;
+      else tilesY--;
+    }
+  }
+
+  const safeTileMaxX = tileMinX + tilesX - 1;
+  const safeTileMaxY = tileMinY + tilesY - 1;
 
   // Build tile list
   const tiles: TileInfo[] = [];
-  for (let ty = tileMinY; ty <= tileMaxY; ty++) {
-    for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+  for (let ty = tileMinY; ty <= safeTileMaxY; ty++) {
+    for (let tx = tileMinX; tx <= safeTileMaxX; tx++) {
       tiles.push({
         x: tx,
         y: ty,
