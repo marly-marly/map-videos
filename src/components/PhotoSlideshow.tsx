@@ -17,10 +17,10 @@ import { z } from "zod";
 export const photoSlideshowSchema = z.object({
   photos: z
     .string()
-    .describe("Comma-separated filenames in the photos folder"),
+    .describe("Comma-separated photo paths (relative to public/, or just filenames if photosFolder is set)"),
   photosFolder: z
     .string()
-    .describe("Subfolder name inside public/ containing photos"),
+    .describe("Subfolder in public/ (leave empty if photos contains full paths)"),
   style: z.enum([
     "ken-burns",
     "mosaic",
@@ -43,11 +43,16 @@ export const photoSlideshowSchema = z.object({
     .min(3)
     .max(30)
     .describe("Transition duration in frames"),
+  durationSeconds: z
+    .number()
+    .min(1)
+    .max(120)
+    .describe("Total video duration in seconds"),
   photoDurationSeconds: z
     .number()
     .min(0.5)
     .max(10)
-    .describe("How long each photo is visible (seconds)"),
+    .describe("How long each photo is visible (seconds, used by non-mosaic styles)"),
   backgroundColor: z.string().describe("Background color (hex)"),
   borderStyle: z
     .enum(["none", "thin-white", "polaroid", "shadow"])
@@ -69,6 +74,16 @@ export const photoSlideshowSchema = z.object({
 
 export type PhotoSlideshowProps = z.infer<typeof photoSlideshowSchema>;
 
+/** Dynamically set composition duration from the durationSeconds prop */
+export const calculatePhotoSlideshowMetadata: Parameters<
+  typeof import("remotion").Composition
+>[0]["calculateMetadata"] = ({ props }) => {
+  const p = props as PhotoSlideshowProps;
+  return {
+    durationInFrames: Math.round(p.durationSeconds * 30),
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -86,6 +101,21 @@ function parsePhotos(csv: string): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Resolve a photo path to a URL. Supports:
+ *  - Absolute paths (C:\... or /...) → served via /local-files/ prefix
+ *  - Relative names with folder → staticFile(folder/name)
+ *  - Relative paths without folder → staticFile(path)
+ */
+function resolvePhotoSrc(photo: string, folder: string): string {
+  // Absolute Windows path (C:\...) or Unix path (/...)
+  if (/^[A-Za-z]:[\\/]/.test(photo) || photo.startsWith("/")) {
+    // Serve via Webpack devServer's /local-files/ static mount
+    const normalized = photo.replace(/\\/g, "/");
+    return `/local-files/${normalized}`;
+  }
+  return staticFile(folder ? `${folder}/${photo}` : photo);
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +348,7 @@ function RenderKenBurns({
             }}
           >
             <PhotoWithBorder
-              src={staticFile(`${folder}/${photo}`)}
+              src={resolvePhotoSrc(photo, folder)}
               borderStyle={borderStyle}
             />
           </AbsoluteFill>
@@ -406,6 +436,7 @@ function RenderMosaic({
   durationInFrames,
   backgroundColor,
   transitionFrames,
+  zoomIntensity,
 }: StyleProps) {
   const gap = 6;
 
@@ -471,7 +502,7 @@ function RenderMosaic({
           }
         }
       };
-      img.src = staticFile(`${folder}/${photo}`);
+      img.src = resolvePhotoSrc(photo, folder);
     });
 
     return () => { cancelled = true; };
@@ -505,7 +536,8 @@ function RenderMosaic({
       fps,
       config: { damping: 20, stiffness: 100, mass: 0.9 },
     });
-    const holdScale = interpolate(batchFrame, [0, batchDuration], [1.02, 1.08], {
+    // zoomIntensity is already 0-0.5 (divided by 100 in main component). Default 0.15.
+    const holdScale = interpolate(batchFrame, [0, batchDuration], [1 + 0.13 * zoomIntensity, 1 + 0.53 * zoomIntensity], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
@@ -531,7 +563,7 @@ function RenderMosaic({
         }}
       >
         <Img
-          src={staticFile(`${folder}/${photo}`)}
+          src={resolvePhotoSrc(photo, folder)}
           style={{
             width: "100%",
             height: "100%",
@@ -662,7 +694,7 @@ function RenderPhotoPrints({
             }}
           >
             <Img
-              src={staticFile(`${folder}/${p.photo}`)}
+              src={resolvePhotoSrc(p.photo, folder)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -761,7 +793,7 @@ function RenderFilmStrip({
             }}
           >
             <Img
-              src={staticFile(`${folder}/${photo}`)}
+              src={resolvePhotoSrc(photo, folder)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -858,7 +890,7 @@ function RenderParallax({
             }}
           >
             <Img
-              src={staticFile(`${folder}/${photo}`)}
+              src={resolvePhotoSrc(photo, folder)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -955,7 +987,7 @@ function RenderEditorialGrid({
               }}
             >
               <Img
-                src={staticFile(`${folder}/${photo}`)}
+                src={resolvePhotoSrc(photo, folder)}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -1037,7 +1069,7 @@ function RenderSlidePush({
             }}
           >
             <Img
-              src={staticFile(`${folder}/${photo}`)}
+              src={resolvePhotoSrc(photo, folder)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -1111,7 +1143,7 @@ function RenderZoomThroughBlack({
         return (
           <AbsoluteFill key={i} style={{ opacity }}>
             <Img
-              src={staticFile(`${folder}/${photo}`)}
+              src={resolvePhotoSrc(photo, folder)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -1156,7 +1188,12 @@ export const PhotoSlideshow: React.FC<PhotoSlideshowProps> = (props) => {
 
   const photoFiles = parsePhotos(props.photos);
   const photoDurationFrames = Math.round(props.photoDurationSeconds * fps);
-  const maxPhotos = Math.max(1, Math.floor(durationInFrames / photoDurationFrames));
+  // For grouped styles (mosaic, editorial-grid), use all photos since multiple
+  // photos are shown per beat. For single-photo styles, cap to fit the duration.
+  const isGroupedStyle = props.style === "mosaic" || props.style === "editorial-grid";
+  const maxPhotos = isGroupedStyle
+    ? photoFiles.length
+    : Math.max(1, Math.floor(durationInFrames / photoDurationFrames));
   const activePhotos = photoFiles.slice(0, maxPhotos);
 
   const styleProps: StyleProps = {

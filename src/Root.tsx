@@ -34,6 +34,7 @@ import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
 import {
   PhotoSlideshow,
   photoSlideshowSchema,
+  calculatePhotoSlideshowMetadata,
 } from "./components/PhotoSlideshow";
 
 const FPS = 30;
@@ -66,6 +67,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -79,6 +84,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -92,6 +101,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -105,6 +118,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -118,6 +135,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -131,6 +152,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -144,6 +169,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -157,6 +186,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -170,6 +203,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -183,6 +220,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -196,6 +237,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -209,6 +254,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -222,6 +271,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -235,6 +288,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -248,6 +305,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -261,6 +322,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -274,6 +339,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -287,6 +356,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -300,6 +373,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -313,6 +390,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -326,6 +407,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -339,6 +424,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -352,6 +441,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition
@@ -447,16 +540,19 @@ export const RemotionRoot: React.FC = () => {
         id="PhotoSlideshow"
         component={PhotoSlideshow}
         schema={photoSlideshowSchema}
-        durationInFrames={FPS * 10}
+        calculateMetadata={calculatePhotoSlideshowMetadata}
+        durationInFrames={FPS * 8}
         fps={FPS}
         width={3840}
         height={2160}
         defaultProps={{
           photos:
-            "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg,DSC09430.jpg,DSC09431.jpg,DSC09440.jpg,DSC09441.jpg",
-          photosFolder: "photos-devils-peak",
-          style: "ken-burns" as const,
+            "0L6A0123.jpg,0L6A0125.jpg,0L6A0131.jpg,0L6A0132.jpg,0L6A0133.jpg,0L6A0135.jpg,0L6A0145.jpg,0L6A0148.jpg",
+          photosFolder:
+            "user-pictures/2025-11-07 Hong Kong/2025-11-19 Kennedy Town and Mount Davis/JPG",
+          style: "mosaic" as const,
           transitionType: "crossfade" as const,
+          durationSeconds: 8,
           transitionDurationFrames: 9,
           photoDurationSeconds: 2,
           backgroundColor: "#000000",
@@ -495,6 +591,10 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
         }}
       />
       <Composition

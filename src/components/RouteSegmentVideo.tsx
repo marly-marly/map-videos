@@ -21,6 +21,14 @@ export interface RouteSegmentVideoProps {
   mapFile: string;
   metaData: SegmentMeta;
   cameraEffect?: CameraEffect;
+  /** Leading dot size (0 = hidden, 100 = default) */
+  dotSize?: number;
+  /** Dot flash speed (0 = no pulse, 100 = default 1Hz) */
+  dotPulseSpeed?: number;
+  /** Route glow intensity (0 = off, 100 = default) */
+  routeGlow?: number;
+  /** Dark outline around route (0 = off, 100 = default) */
+  routeCasing?: number;
 }
 
 export interface SegmentMeta {
@@ -42,6 +50,10 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   mapFile,
   metaData,
   cameraEffect,
+  dotSize = 100,
+  dotPulseSpeed = 100,
+  routeGlow = 100,
+  routeCasing = 100,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
@@ -130,7 +142,10 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   }, [easedDraw, meta]);
 
   // Pulsing glow on the runner dot
-  const glowPulse = 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2);
+  const pulseRate = dotPulseSpeed / 100;
+  const glowPulse = pulseRate > 0
+    ? 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2 * pulseRate)
+    : 0.7;
 
   // Camera zoom effect
   const cameraZoom = cameraEffect
@@ -179,29 +194,33 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
       >
         <defs>
           {/* Glow filter for the route line */}
-          <filter id="route-glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+          {routeGlow > 0 && (
+            <filter id="route-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation={8 * (routeGlow / 100)} result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )}
 
           {/* Stronger glow for the runner dot */}
-          <filter
-            id="runner-glow"
-            x="-200%"
-            y="-200%"
-            width="500%"
-            height="500%"
-          >
-            <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+          {routeGlow > 0 && (
+            <filter
+              id="runner-glow"
+              x="-200%"
+              y="-200%"
+              width="500%"
+              height="500%"
+            >
+              <feGaussianBlur in="SourceGraphic" stdDeviation={12 * (routeGlow / 100)} result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )}
         </defs>
 
         {/* Previous route — dim trail showing earlier segments */}
@@ -218,16 +237,18 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
         )}
 
         {/* Route casing (dark outline) */}
-        <path
-          d={svgPath}
-          fill="none"
-          stroke="rgba(0,0,0,0.6)"
-          strokeWidth={routeWidth + 6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray={pathLength}
-          strokeDashoffset={dashOffset}
-        />
+        {routeCasing > 0 && (
+          <path
+            d={svgPath}
+            fill="none"
+            stroke={`rgba(0,0,0,${0.6 * (routeCasing / 100)})`}
+            strokeWidth={routeWidth + 6 * (routeCasing / 100)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={pathLength}
+            strokeDashoffset={dashOffset}
+          />
+        )}
 
         {/* Route line with glow */}
         <path
@@ -240,31 +261,33 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
           strokeLinejoin="round"
           strokeDasharray={pathLength}
           strokeDashoffset={dashOffset}
-          filter="url(#route-glow)"
+          filter={routeGlow > 0 ? "url(#route-glow)" : undefined}
         />
 
-        {/* Runner dot — outer glow */}
-        {easedDraw > 0 && (
-          <>
-            <circle
-              cx={currentPoint.x}
-              cy={currentPoint.y}
-              r={22}
-              fill={routeColor}
-              opacity={glowPulse}
-              filter="url(#runner-glow)"
-            />
-            {/* Runner dot — white center */}
-            <circle
-              cx={currentPoint.x}
-              cy={currentPoint.y}
-              r={10}
-              fill="#ffffff"
-              stroke={routeColor}
-              strokeWidth={5}
-            />
-          </>
-        )}
+        {/* Runner dot */}
+        {easedDraw > 0 && dotSize > 0 && (() => {
+          const ds = dotSize / 100;
+          return (
+            <>
+              <circle
+                cx={currentPoint.x}
+                cy={currentPoint.y}
+                r={22 * ds}
+                fill={routeColor}
+                opacity={glowPulse}
+                filter={routeGlow > 0 ? "url(#runner-glow)" : undefined}
+              />
+              <circle
+                cx={currentPoint.x}
+                cy={currentPoint.y}
+                r={10 * ds}
+                fill="#ffffff"
+                stroke={routeColor}
+                strokeWidth={5 * ds}
+              />
+            </>
+          );
+        })()}
       </svg>
       </div>
 
