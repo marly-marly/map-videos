@@ -23,7 +23,7 @@ const OFFSET_X = posArgs[3] ? parseFloat(posArgs[3]) : 0; // positive = shift vi
 const OFFSET_Y = posArgs[4] ? parseFloat(posArgs[4]) : 0; // positive = shift view down (negative = up)
 const PADDING_FACTOR = posArgs[5] ? parseFloat(posArgs[5]) : 0.35; // padding around the route segment (default 35%)
 const zoomFlag = flagArgs.find(a => a.startsWith('--zoom='));
-const ZOOM = zoomFlag ? parseInt(zoomFlag.split('=')[1]) : 17;
+let ZOOM = zoomFlag ? parseInt(zoomFlag.split('=')[1]) : 17;
 const TILE_SIZE = 256;
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
@@ -41,7 +41,14 @@ const TILE_URLS: Record<string, string> = {
   ocean: "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
   cartodark: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
 };
-const TILE_URL = TILE_URLS[PROVIDER] || TILE_URLS.esri;
+const IS_OCEAN_COMPOSITE = PROVIDER === 'ocean-composite';
+// Hillshade tiles max out at zoom 16
+if (IS_OCEAN_COMPOSITE && ZOOM > 16) {
+  console.log(`Hillshade capped: zoom ${ZOOM} → 16`);
+  ZOOM = 16;
+}
+const TILE_URL = IS_OCEAN_COMPOSITE ? TILE_URLS.hillshade : (TILE_URLS[PROVIDER] || TILE_URLS.esri);
+const CARTO_POSITRON_URL = "https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png";
 if (PROVIDER !== 'esri') console.log(`Using tile provider: ${PROVIDER}`);
 
 // ---------- Web Mercator math ----------
@@ -103,9 +110,10 @@ function tileToQuadkey(x: number, y: number, z: number): string {
 async function fetchTile(
   z: number,
   x: number,
-  y: number
+  y: number,
+  urlTemplate?: string
 ): Promise<Buffer> {
-  let url = TILE_URL.replace("{z}", String(z))
+  let url = (urlTemplate || TILE_URL).replace("{z}", String(z))
     .replace("{x}", String(x))
     .replace("{y}", String(y));
   if (url.includes("{quadkey}")) {
@@ -308,16 +316,81 @@ async function main() {
   }
 
   // Create base image and composite tiles
-  const stitched = sharp({
-    create: {
-      width: stitchedWidth,
-      height: stitchedHeight,
-      channels: 3,
-      background: { r: 0, g: 0, b: 0 },
-    },
-  })
-    .composite(compositeInputs)
-    .png();
+  let stitchedBuf: Buffer;
+  {
+    const base = sharp({
+      create: {
+        width: stitchedWidth,
+        height: stitchedHeight,
+        channels: 3,
+        background: { r: 0, g: 0, b: 0 },
+      },
+    })
+      .composite(compositeInputs)
+      .png();
+    stitchedBuf = await base.toBuffer();
+  }
+
+  // For ocean-composite: fetch CartoDB Positron tiles and blend on top
+  if (IS_OCEAN_COMPOSITE) {
+    console.log("Fetching CartoDB Positron water tiles...");
+    const waterBuffers: Map<string, Buffer> = new Map();
+    const waterQueue = [...tileQueue];
+    let wFetched = 0;
+    async function processWaterBatch(batch: { x: number; y: number }[]) {
+      await Promise.all(
+        batch.map(async ({ x, y }) => {
+          const buf = await fetchTile(ZOOM, x, y, CARTO_POSITRON_URL);
+          waterBuffers.set(`${x},${y}`, buf);
+          wFetched++;
+          if (wFetched % 10 === 0 || wFetched === totalTiles) {
+            process.stdout.write(`\rDownloaded ${wFetched}/${totalTiles} water tiles`);
+          }
+        })
+      );
+    }
+    for (let i = 0; i < waterQueue.length; i += CONCURRENCY) {
+      await processWaterBatch(waterQueue.slice(i, i + CONCURRENCY));
+    }
+    console.log("\nCompositing water overlay...");
+
+    // Stitch water tiles
+    const waterInputs: sharp.OverlayOptions[] = [];
+    for (let ty = tileMinY; ty <= tileMaxY; ty++) {
+      for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+        const buf = waterBuffers.get(`${tx},${ty}`);
+        if (buf) {
+          waterInputs.push({
+            input: buf,
+            left: (tx - tileMinX) * TILE_SIZE,
+            top: (ty - tileMinY) * TILE_SIZE,
+          });
+        }
+      }
+    }
+
+    const waterStitched = await sharp({
+      create: {
+        width: stitchedWidth,
+        height: stitchedHeight,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 },
+      },
+    })
+      .composite(waterInputs)
+      .png()
+      .toBuffer();
+
+    // Blend: multiply the water layer on top of hillshade
+    // sharp's "multiply" blend mode does exactly this
+    stitchedBuf = await sharp(stitchedBuf)
+      .composite([{
+        input: await sharp(waterStitched).ensureAlpha().toBuffer(),
+        blend: "multiply" as any,
+      }])
+      .png()
+      .toBuffer();
+  }
 
   // Crop to the exact 16:9 viewport
   const cropLeft = Math.round(topLeftPx.x - tileMinX * TILE_SIZE);
@@ -325,7 +398,7 @@ async function main() {
   const cropWidth = Math.round(pxWidth);
   const cropHeight = Math.round(pxHeight);
 
-  const croppedBuf = await sharp(await stitched.toBuffer())
+  const croppedBuf = await sharp(stitchedBuf)
     .extract({
       left: cropLeft,
       top: cropTop,

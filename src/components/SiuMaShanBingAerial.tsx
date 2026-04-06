@@ -9,6 +9,9 @@ export interface SiuMaShanBingAerialProps {
   dotPulseSpeed?: number;
   routeGlow?: number;
   routeCasing?: number;
+  mapFileEnd?: string;
+  tileTransitionStart?: number;
+  tileTransitionEnd?: number;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -20,6 +23,9 @@ export const SiuMaShanBingAerial: React.FC<SiuMaShanBingAerialProps> = ({
   dotPulseSpeed,
   routeGlow,
   routeCasing,
+  mapFileEnd,
+  tileTransitionStart,
+  tileTransitionEnd,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -28,6 +34,9 @@ export const SiuMaShanBingAerial: React.FC<SiuMaShanBingAerialProps> = ({
     dotPulseSpeed={dotPulseSpeed}
     routeGlow={routeGlow}
     routeCasing={routeCasing}
+    mapFileEnd={mapFileEnd}
+    tileTransitionStart={tileTransitionStart}
+    tileTransitionEnd={tileTransitionEnd}
     mapFile="siu-ma-shan-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 1.25, endZoom: 1.0, anchor: [0.64, 0.22] }}

@@ -9,6 +9,9 @@ export interface MongKokBingAerialProps {
   dotPulseSpeed?: number;
   routeGlow?: number;
   routeCasing?: number;
+  mapFileEnd?: string;
+  tileTransitionStart?: number;
+  tileTransitionEnd?: number;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -20,6 +23,9 @@ export const MongKokBingAerial: React.FC<MongKokBingAerialProps> = ({
   dotPulseSpeed,
   routeGlow,
   routeCasing,
+  mapFileEnd,
+  tileTransitionStart,
+  tileTransitionEnd,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -28,6 +34,9 @@ export const MongKokBingAerial: React.FC<MongKokBingAerialProps> = ({
     dotPulseSpeed={dotPulseSpeed}
     routeGlow={routeGlow}
     routeCasing={routeCasing}
+    mapFileEnd={mapFileEnd}
+    tileTransitionStart={tileTransitionStart}
+    tileTransitionEnd={tileTransitionEnd}
     mapFile="mong-kok-bing-aerial.png"
     metaData={typedMeta}
   />

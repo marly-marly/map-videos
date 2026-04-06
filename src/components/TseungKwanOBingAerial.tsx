@@ -9,6 +9,9 @@ export interface TseungKwanOBingAerialProps {
   dotPulseSpeed?: number;
   routeGlow?: number;
   routeCasing?: number;
+  mapFileEnd?: string;
+  tileTransitionStart?: number;
+  tileTransitionEnd?: number;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -20,6 +23,9 @@ export const TseungKwanOBingAerial: React.FC<TseungKwanOBingAerialProps> = ({
   dotPulseSpeed,
   routeGlow,
   routeCasing,
+  mapFileEnd,
+  tileTransitionStart,
+  tileTransitionEnd,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -28,6 +34,9 @@ export const TseungKwanOBingAerial: React.FC<TseungKwanOBingAerialProps> = ({
     dotPulseSpeed={dotPulseSpeed}
     routeGlow={routeGlow}
     routeCasing={routeCasing}
+    mapFileEnd={mapFileEnd}
+    tileTransitionStart={tileTransitionStart}
+    tileTransitionEnd={tileTransitionEnd}
     mapFile="tseung-kwan-o-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 1.15, endZoom: 1.0, anchor: [0.5, 0.5] }}

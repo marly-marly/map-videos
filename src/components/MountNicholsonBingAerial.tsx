@@ -9,6 +9,9 @@ export interface MountNicholsonBingAerialProps {
   dotPulseSpeed?: number;
   routeGlow?: number;
   routeCasing?: number;
+  mapFileEnd?: string;
+  tileTransitionStart?: number;
+  tileTransitionEnd?: number;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -20,6 +23,9 @@ export const MountNicholsonBingAerial: React.FC<MountNicholsonBingAerialProps> =
   dotPulseSpeed,
   routeGlow,
   routeCasing,
+  mapFileEnd,
+  tileTransitionStart,
+  tileTransitionEnd,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -28,6 +34,9 @@ export const MountNicholsonBingAerial: React.FC<MountNicholsonBingAerialProps> =
     dotPulseSpeed={dotPulseSpeed}
     routeGlow={routeGlow}
     routeCasing={routeCasing}
+    mapFileEnd={mapFileEnd}
+    tileTransitionStart={tileTransitionStart}
+    tileTransitionEnd={tileTransitionEnd}
     mapFile="mount-nicholson-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 1.0, endZoom: 1.25, anchor: [0.44, 0.21] }}

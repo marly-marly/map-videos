@@ -1,4 +1,5 @@
 import { Composition } from "remotion";
+import { segmentPropsSchema } from "./components/RouteSegmentVideo";
 import { MapRouteVideo } from "./components/MapRouteVideo";
 import { TseungKwanO } from "./components/TseungKwanO";
 import { TseungKwanOBingAerial } from "./components/TseungKwanOBingAerial";
@@ -71,6 +72,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -88,6 +92,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -105,6 +112,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -122,6 +132,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -139,6 +152,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -156,6 +172,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -173,6 +192,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -190,6 +212,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -207,6 +232,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -224,6 +252,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -241,6 +272,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -258,11 +292,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="01-TseungKwanO-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={TseungKwanOBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -275,11 +312,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "tseung-kwan-o-ocean-composite.png",
+          tileTransitionStart: 16,
+          tileTransitionEnd: 30,
         }}
       />
       <Composition
         id="02-DevilsPeak-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={DevilsPeakBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -292,11 +332,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "devils-peak-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="03-SiuMaShan-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={SiuMaShanBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -309,11 +352,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "siu-ma-shan-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="04-TaiTam-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={TaiTamBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -326,11 +372,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "tai-tam-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="05-StanleyMound-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={StanleyMoundBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -343,11 +392,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "stanley-mound-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="06-MountNicholson-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={MountNicholsonBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -360,11 +412,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "mount-nicholson-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="07-WanChaiGap-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={WanChaiGapBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -377,11 +432,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "wan-chai-gap-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="08-Central-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={CentralBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -394,11 +452,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "central-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="09-KowloonMongKok-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={KowloonMongKok}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -411,11 +472,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "kowloon-mong-kok-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="10-BeaconHill-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={BeaconHillBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -428,11 +492,14 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "beacon-hill-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
         id="11-SaiKung-BingAerial"
-        // @ts-expect-error Remotion Composition generics
+        schema={segmentPropsSchema}
         component={SaiKungBingAerial}
         durationInFrames={FPS * 20}
         fps={FPS}
@@ -445,6 +512,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "sai-kung-ocean-composite.png",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition
@@ -547,9 +617,8 @@ export const RemotionRoot: React.FC = () => {
         height={2160}
         defaultProps={{
           photos:
-            "0L6A0123.jpg,0L6A0125.jpg,0L6A0131.jpg,0L6A0132.jpg,0L6A0133.jpg,0L6A0135.jpg,0L6A0145.jpg,0L6A0148.jpg",
-          photosFolder:
-            "user-pictures/2025-11-07 Hong Kong/2025-11-19 Kennedy Town and Mount Davis/JPG",
+            "0L6A0125.jpg,0L6A0131.jpg,0L6A0132.jpg,0L6A0133.jpg,0L6A0135.jpg,0L6A0145.jpg,0L6A0148.jpg,0L6A0126.jpg",
+          photosFolder: "photos-mount-davis",
           style: "mosaic" as const,
           transitionType: "crossfade" as const,
           durationSeconds: 8,
@@ -558,6 +627,54 @@ export const RemotionRoot: React.FC = () => {
           backgroundColor: "#000000",
           borderStyle: "none" as const,
           zoomIntensity: 15,
+          zoomDirection: "alternate" as const,
+          randomSeed: 42,
+        }}
+      />
+      <Composition
+        id="MountDavis01"
+        component={PhotoSlideshow}
+        schema={photoSlideshowSchema}
+        calculateMetadata={calculatePhotoSlideshowMetadata}
+        durationInFrames={FPS * 8}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          photos: "0L6A0125.jpg,0L6A0131.jpg,0L6A0132.jpg,0L6A0133.jpg",
+          photosFolder: "photos-mount-davis",
+          style: "mosaic" as const,
+          transitionType: "crossfade" as const,
+          durationSeconds: 8,
+          transitionDurationFrames: 9,
+          photoDurationSeconds: 2,
+          backgroundColor: "#000000",
+          borderStyle: "none" as const,
+          zoomIntensity: 26,
+          zoomDirection: "alternate" as const,
+          randomSeed: 88,
+        }}
+      />
+      <Composition
+        id="MountDavis02"
+        component={PhotoSlideshow}
+        schema={photoSlideshowSchema}
+        calculateMetadata={calculatePhotoSlideshowMetadata}
+        durationInFrames={FPS * 8}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          photos: "0L6A0135.jpg,0L6A0145.jpg,0L6A0148.jpg,0L6A0126.jpg",
+          photosFolder: "photos-mount-davis",
+          style: "mosaic" as const,
+          transitionType: "crossfade" as const,
+          durationSeconds: 8,
+          transitionDurationFrames: 9,
+          photoDurationSeconds: 2,
+          backgroundColor: "#000000",
+          borderStyle: "none" as const,
+          zoomIntensity: 26,
           zoomDirection: "alternate" as const,
           randomSeed: 42,
         }}
@@ -595,6 +712,9 @@ export const RemotionRoot: React.FC = () => {
           dotPulseSpeed: 100,
           routeGlow: 100,
           routeCasing: 100,
+          mapFileEnd: "",
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
         }}
       />
       <Composition

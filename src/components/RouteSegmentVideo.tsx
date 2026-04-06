@@ -1,10 +1,26 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import {
   AbsoluteFill,
+  interpolate,
   useCurrentFrame,
   useVideoConfig,
   staticFile,
 } from "remotion";
+import { z } from "zod";
+
+/** Zod schema for the segment props exposed in the Remotion Studio sidebar */
+export const segmentPropsSchema = z.object({
+  routeColor: z.string().describe("Route line color"),
+  routeWidth: z.number().min(1).max(50).describe("Route line width"),
+  dotSize: z.number().min(0).max(200).describe("Leading dot size (0=hidden, 100=default)"),
+  dotPulseSpeed: z.number().min(0).max(500).describe("Dot flash speed (0=static, 100=default)"),
+  routeGlow: z.number().min(0).max(200).describe("Route glow (0=off, 100=default)"),
+  routeCasing: z.number().min(0).max(200).describe("Dark outline (0=off, 100=default)"),
+  // Tile transition: crossfade from mapFile to mapFileEnd
+  mapFileEnd: z.string().describe("Second map PNG for tile transition (empty=no transition)"),
+  tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
+  tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
+});
 
 export interface CameraEffect {
   /** Starting zoom level (1 = no zoom, 1.2 = 20% zoomed in) */
@@ -29,6 +45,12 @@ export interface RouteSegmentVideoProps {
   routeGlow?: number;
   /** Dark outline around route (0 = off, 100 = default) */
   routeCasing?: number;
+  /** Second map PNG for tile transition (empty = no transition) */
+  mapFileEnd?: string;
+  /** Tile crossfade begins at % of duration */
+  tileTransitionStart?: number;
+  /** Tile crossfade ends at % of duration */
+  tileTransitionEnd?: number;
 }
 
 export interface SegmentMeta {
@@ -54,6 +76,9 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   dotPulseSpeed = 100,
   routeGlow = 100,
   routeCasing = 100,
+  mapFileEnd = "",
+  tileTransitionStart = 0,
+  tileTransitionEnd = 0,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
@@ -167,7 +192,7 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
           transformOrigin: `${cameraAnchor[0] * 100}% ${cameraAnchor[1] * 100}%`,
         }}
       >
-      {/* Satellite map background */}
+      {/* Satellite map background — start provider */}
       <img
         src={staticFile(mapFile)}
         style={{
@@ -179,6 +204,29 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
           opacity: mapOpacity,
         }}
       />
+
+      {/* Satellite map background — end provider (crossfade on top) */}
+      {mapFileEnd && (() => {
+        const startF = (tileTransitionStart / 100) * durationInFrames;
+        const endF = (tileTransitionEnd / 100) * durationInFrames;
+        const endOpacity = endF > startF
+          ? interpolate(frame, [startF, endF], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+          : 0;
+        if (endOpacity <= 0) return null;
+        return (
+          <img
+            src={staticFile(mapFileEnd)}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              opacity: endOpacity * mapOpacity,
+            }}
+          />
+        );
+      })()}
 
       {/* SVG route overlay */}
       <svg
