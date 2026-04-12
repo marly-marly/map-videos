@@ -12,6 +12,10 @@ export interface SaiKungBingAerialProps {
   mapFileEnd?: string;
   tileTransitionStart?: number;
   tileTransitionEnd?: number;
+  showDistance?: boolean;
+  showElevation?: boolean;
+  distanceLabel?: string;
+  elevationLabel?: string;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -26,6 +30,10 @@ export const SaiKungBingAerial: React.FC<SaiKungBingAerialProps> = ({
   mapFileEnd,
   tileTransitionStart,
   tileTransitionEnd,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -37,6 +45,10 @@ export const SaiKungBingAerial: React.FC<SaiKungBingAerialProps> = ({
     mapFileEnd={mapFileEnd}
     tileTransitionStart={tileTransitionStart}
     tileTransitionEnd={tileTransitionEnd}
+    showDistance={showDistance}
+    showElevation={showElevation}
+    distanceLabel={distanceLabel}
+    elevationLabel={elevationLabel}
     mapFile="sai-kung-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 2.2, endZoom: 1.0, anchor: [0.23, 0.66] }}

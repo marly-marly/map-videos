@@ -12,6 +12,10 @@ export interface WanChaiGapBingAerialProps {
   mapFileEnd?: string;
   tileTransitionStart?: number;
   tileTransitionEnd?: number;
+  showDistance?: boolean;
+  showElevation?: boolean;
+  distanceLabel?: string;
+  elevationLabel?: string;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -26,6 +30,10 @@ export const WanChaiGapBingAerial: React.FC<WanChaiGapBingAerialProps> = ({
   mapFileEnd,
   tileTransitionStart,
   tileTransitionEnd,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -37,6 +45,10 @@ export const WanChaiGapBingAerial: React.FC<WanChaiGapBingAerialProps> = ({
     mapFileEnd={mapFileEnd}
     tileTransitionStart={tileTransitionStart}
     tileTransitionEnd={tileTransitionEnd}
+    showDistance={showDistance}
+    showElevation={showElevation}
+    distanceLabel={distanceLabel}
+    elevationLabel={elevationLabel}
     mapFile="wan-chai-gap-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 1.3, endZoom: 1.0, anchor: [0.71, 0.76] }}

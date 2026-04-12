@@ -6,6 +6,10 @@
 import * as turf from "@turf/turf";
 import type { GpxPoint } from "./gpx-browser-parser";
 
+/** Any gap larger than this between adjacent points is treated as a ferry ride
+ *  and excluded from distance accumulation. */
+const FERRY_THRESHOLD_KM = 0.5;
+
 export interface ProcessedRoute {
   /** Display-simplified coordinates [lng, lat][] */
   simplifiedCoords: [number, number][];
@@ -57,13 +61,16 @@ export function processRoute(points: GpxPoint[]): ProcessedRoute {
   const simplifiedCoords = simplified.geometry
     .coordinates as [number, number][];
 
-  // Compute cumulative distances along simplified line
+  // Compute cumulative distances along simplified line.
+  // Skip large jumps (ferry rides, GPS pauses).
   const cumulativeDistances: number[] = [0];
   for (let i = 1; i < simplifiedCoords.length; i++) {
     const from = turf.point(simplifiedCoords[i - 1]);
     const to = turf.point(simplifiedCoords[i]);
     const dist = turf.distance(from, to, { units: "kilometers" });
-    cumulativeDistances.push(cumulativeDistances[i - 1] + dist);
+    // Skip ferry-sized jumps from distance accumulation
+    const addDist = dist > FERRY_THRESHOLD_KM ? 0 : dist;
+    cumulativeDistances.push(cumulativeDistances[i - 1] + addDist);
   }
   const totalDistanceKm =
     cumulativeDistances[cumulativeDistances.length - 1];
@@ -129,7 +136,26 @@ export function extractSegment(
     );
   }
 
-  // Resample at 20m intervals
+  // Detect ferry gaps in the raw segment coords.
+  // Record cumulative geographic distance ranges that are ferries.
+  const ferryRanges: [number, number][] = [];
+  {
+    let cumDist = 0;
+    for (let i = 1; i < rawSegmentCoords.length; i++) {
+      const dist = turf.distance(
+        turf.point(rawSegmentCoords[i - 1]),
+        turf.point(rawSegmentCoords[i]),
+        { units: "kilometers" }
+      );
+      if (dist > FERRY_THRESHOLD_KM) {
+        ferryRanges.push([cumDist, cumDist + dist]);
+      }
+      cumDist += dist;
+    }
+  }
+
+  // Resample at 20m intervals (including ferry sections — the dot
+  // still animates across the water, it just won't count distance)
   const RESAMPLE_INTERVAL_KM = 0.02;
   const segmentLine = turf.lineString(rawSegmentCoords);
   const segmentTotalKm = turf.length(segmentLine, { units: "kilometers" });
@@ -140,13 +166,29 @@ export function extractSegment(
   }
   resampledCoords.push(rawSegmentCoords[rawSegmentCoords.length - 1]);
 
-  // Compute distances within segment
+  // Compute distances: for each resampled point, track its geographic
+  // distance along the line, but only accumulate non-ferry portions.
   const segmentDistances: number[] = [0];
   for (let i = 1; i < resampledCoords.length; i++) {
-    const from = turf.point(resampledCoords[i - 1]);
-    const to = turf.point(resampledCoords[i]);
-    const dist = turf.distance(from, to, { units: "kilometers" });
-    segmentDistances.push(segmentDistances[i - 1] + dist);
+    const geoDist = i * RESAMPLE_INTERVAL_KM; // approximate geo distance along line
+    // Check if this step falls within a ferry range
+    const prevGeoDist = (i - 1) * RESAMPLE_INTERVAL_KM;
+    const midGeoDist = (prevGeoDist + geoDist) / 2;
+    const inFerry = ferryRanges.some(
+      ([fStart, fEnd]) => midGeoDist >= fStart && midGeoDist <= fEnd
+    );
+    if (inFerry) {
+      // Ferry — distance stays the same
+      segmentDistances.push(segmentDistances[i - 1]);
+    } else {
+      // Land — accumulate actual distance
+      const dist = turf.distance(
+        turf.point(resampledCoords[i - 1]),
+        turf.point(resampledCoords[i]),
+        { units: "kilometers" }
+      );
+      segmentDistances.push(segmentDistances[i - 1] + dist);
+    }
   }
 
   // Map resampled points to nearest elevation

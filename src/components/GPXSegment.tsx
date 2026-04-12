@@ -7,6 +7,8 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import {
   AbsoluteFill,
+  continueRender,
+  delayRender,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
@@ -42,7 +44,7 @@ export const gpxSegmentSchema = z.object({
   cameraAnchorX: z.number().min(0).max(100).describe("Camera zoom pivot X (% from left)"),
   cameraAnchorY: z.number().min(0).max(100).describe("Camera zoom pivot Y (% from top)"),
   // Viewport
-  padding: z.number().min(0).max(2).describe("Padding around segment (0.35 = 35%)"),
+  padding: z.number().min(0).max(200).describe("Padding around segment (% — 35 = default)"),
   offsetX: z.number().min(-500).max(500).describe("Viewport shift X (% of view width)"),
   offsetY: z.number().min(-500).max(500).describe("Viewport shift Y (% of view height)"),
   // Route
@@ -52,6 +54,7 @@ export const gpxSegmentSchema = z.object({
   dotPulseSpeed: z.number().min(0).max(500).describe("Dot flash speed (0 = no pulse, 100 = default, 500 = fast)"),
   routeGlow: z.number().min(0).max(200).describe("Route glow intensity (0 = off, 100 = default, 200 = intense)"),
   routeCasing: z.number().min(0).max(200).describe("Dark outline around route (0 = off, 100 = default)"),
+  routeShadow: z.number().min(0).max(200).describe("Soft shadow under route (0 = off, 50 = subtle, 100 = default)"),
   showPreviousRoute: z.boolean().describe("Show dim trail of previous route"),
   // HUD
   showHud: z.boolean().describe("Show distance + elevation HUD"),
@@ -78,6 +81,8 @@ export interface GPXSegmentProps {
   routeGlow: number;
   /** Dark outline around route (0 = off, 100 = default) */
   routeCasing: number;
+  /** Soft shadow under route (0 = off, 100 = default) */
+  routeShadow: number;
   /** Show distance + elevation HUD */
   showHud: boolean;
   /** Show dim trail of previous route */
@@ -125,6 +130,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   dotPulseSpeed,
   routeGlow,
   routeCasing,
+  routeShadow,
   showHud,
   showPreviousRoute,
   zoom,
@@ -145,19 +151,22 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
 
-  // Load and parse GPX file
+  // Load and parse GPX file — delayRender ensures no frames are captured until loaded
   const [gpxData, setGpxData] = useState<string | null>(null);
+  const [gpxHandle] = useState(() => delayRender("Loading GPX file", { timeoutInMilliseconds: 30000 }));
 
   useEffect(() => {
     fetch(staticFile(gpxFile))
       .then((r) => r.text())
       .then((text) => {
         setGpxData(text);
+        continueRender(gpxHandle);
       })
       .catch(() => {
         console.error(`Failed to load GPX file: ${gpxFile}`);
+        continueRender(gpxHandle);
       });
-  }, [gpxFile]);
+  }, [gpxFile, gpxHandle]);
 
   // Process route
   const route = useMemo(() => {
@@ -194,7 +203,8 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
 
   // Both viewports must cover the same physical area (the widest view).
   // The padding is inflated based on the most zoomed-out camera state.
-  const effectivePadding = minCameraScale < 1 ? padding / minCameraScale : padding;
+  const basePadding = padding / 100;
+  const effectivePadding = minCameraScale < 1 ? basePadding / minCameraScale : basePadding;
 
   // Apply zoomReduction to whichever provider is shown at the more zoomed-out camera state.
   // Lower tile zoom = fewer tiles for the same area = faster loading.
@@ -290,7 +300,16 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
 
   // Distance
   const segmentLengthKm = segment?.segmentLengthKm ?? 0;
-  const currentDistanceKm = startKm + segmentLengthKm * easedDraw;
+  // Read distance from actual segmentDistances (which skips ferry gaps)
+  const currentDistanceKm = useMemo(() => {
+    if (!segment) return startKm;
+    const dists = segment.segmentDistances;
+    const targetIdx = Math.min(
+      dists.length - 1,
+      Math.round(easedDraw * (dists.length - 1))
+    );
+    return startKm + dists[targetIdx];
+  }, [segment, startKm, easedDraw]);
 
   // Elevation gain
   const cumulativeElevGain = useMemo(() => {
@@ -363,8 +382,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   const cameraProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
   const startZ = cameraStartZoom / 100;
   const endZ = cameraEndZoom / 100;
-  const rawZoom = startZ + (endZ - startZ) * cameraProgress;
-  const cameraZoom = rawZoom / minCameraScale; // normalize: minScale→1.0, maxScale→max/min
+  const cameraZoom = startZ + (endZ - startZ) * cameraProgress;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
@@ -413,6 +431,20 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
         style={{ position: "absolute", top: 0, left: 0 }}
       >
         <defs>
+          {routeShadow > 0 && (
+            <filter
+              id="gpx-route-shadow"
+              x="-100%"
+              y="-100%"
+              width="300%"
+              height="300%"
+            >
+              <feGaussianBlur
+                in="SourceGraphic"
+                stdDeviation={12 * (routeShadow / 100)}
+              />
+            </filter>
+          )}
           {routeGlow > 0 && (
             <>
               <filter
@@ -464,6 +496,21 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity={0.4}
+          />
+        )}
+
+        {/* Route shadow (soft blur underneath) */}
+        {routeShadow > 0 && (
+          <path
+            d={svgPath}
+            fill="none"
+            stroke={`rgba(0,0,0,${0.5 * (routeShadow / 100)})`}
+            strokeWidth={routeWidth + 20 * (routeShadow / 100)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={pathLength}
+            strokeDashoffset={dashOffset}
+            filter="url(#gpx-route-shadow)"
           />
         )}
 

@@ -33,6 +33,11 @@ import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
 import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
 import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
 import {
+  IndyTracker,
+  indyTrackerSchema,
+  calculateIndyTrackerMetadata,
+} from "./components/IndyTracker";
+import {
   PhotoSlideshow,
   photoSlideshowSchema,
   calculatePhotoSlideshowMetadata,
@@ -75,6 +80,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -95,6 +104,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -115,6 +128,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -135,6 +152,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -155,6 +176,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -175,6 +200,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -195,6 +224,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -215,6 +248,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -235,6 +272,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -255,6 +296,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -275,6 +320,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -295,6 +344,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -315,6 +368,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "tseung-kwan-o-ocean-composite.png",
           tileTransitionStart: 16,
           tileTransitionEnd: 30,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -335,6 +392,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "devils-peak-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -355,6 +416,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "siu-ma-shan-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -375,6 +440,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "tai-tam-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -395,6 +464,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "stanley-mound-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -415,6 +488,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "mount-nicholson-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -435,6 +512,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "wan-chai-gap-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -455,6 +536,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "central-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -475,6 +560,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "kowloon-mong-kok-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -495,6 +584,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "beacon-hill-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -515,6 +608,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "sai-kung-ocean-composite.png",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -577,33 +674,80 @@ export const RemotionRoot: React.FC = () => {
         width={3840}
         height={2160}
         defaultProps={{
-          gpxFile: "MountDavisRoute.gpx",
+          gpxFile: "route.gpx",
           startKm: 0,
-          endKm: 9999,
+          endKm: 10,
           durationSeconds: 20,
           provider: "ocean-composite" as const,
-          providerEnd: "bing" as const,
+          providerEnd: "ocean-composite" as const,
           tileTransitionStart: 40,
           tileTransitionEnd: 55,
-          zoom: 18,
+          zoom: 15,
           zoomReduction: 2,
-          cameraStartZoom: 2,
-          cameraEndZoom: 15,
+          cameraStartZoom: 140,
+          cameraEndZoom: 115,
           cameraZoomDelay: 15,
           cameraZoomEndDelay: 10,
           cameraAnchorX: 19,
           cameraAnchorY: 34,
-          padding: 0.35,
-          offsetX: 28,
-          offsetY: 15,
-          routeColor: "#ff4444",
-          routeWidth: 2,
-          dotSize: 17,
+          padding: 35,
+          offsetX: 0,
+          offsetY: 0,
+          routeColor: "#cc3232",
+          routeWidth: 8,
+          dotSize: 30,
           dotPulseSpeed: 50,
-          routeGlow: 124,
-          routeCasing: 65,
+          routeGlow: 0,
+          routeCasing: 12,
+          routeShadow: 0,
           showPreviousRoute: false,
-          showHud: false,
+          showHud: true,
+        }}
+      />
+      <Composition
+        id="IndyTracker"
+        component={IndyTracker}
+        schema={indyTrackerSchema}
+        calculateMetadata={calculateIndyTrackerMetadata}
+        durationInFrames={FPS * 20}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          gpxFile: "route.gpx",
+          startKm: 0,
+          endKm: 10,
+          durationSeconds: 20,
+          provider: "ocean-composite" as const,
+          providerEnd: "ocean-composite" as const,
+          tileTransitionStart: 0,
+          tileTransitionEnd: 0,
+          zoom: 17,
+          cameraZoom: 100,
+          cameraTracking: "cinematic" as const,
+          lookAhead: 0,
+          routeColor: "#ff4444",
+          routeWidth: 8,
+          dotSize: 100,
+          dotPulseSpeed: 100,
+          routeGlow: 100,
+          routeCasing: 100,
+          routeShadow: 0,
+          smoothRoute: 50,
+          photos: "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg",
+          photosFolder: "photos-devils-peak",
+          photoPositions: "2,4,6,8",
+          photoStyle: "on-route" as const,
+          photoSize: 15,
+          photoTilt: 5,
+          photoReveal: "fade" as const,
+          photoRevealSpeed: 100,
+          photoSeed: 42,
+          distanceScale: 112,
+          showDistance: true,
+          showElevation: false,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition
@@ -715,6 +859,10 @@ export const RemotionRoot: React.FC = () => {
           mapFileEnd: "",
           tileTransitionStart: 0,
           tileTransitionEnd: 0,
+          showDistance: true,
+          showElevation: true,
+          distanceLabel: "",
+          elevationLabel: "",
         }}
       />
       <Composition

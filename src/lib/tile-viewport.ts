@@ -51,6 +51,12 @@ const TILE_URLS: Record<string, string> = {
   ocean:
     "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
   cartodark: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
+  // Labeled providers
+  "esri-topo": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+  "carto-voyager": "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+  "carto-light": "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+  "carto-dark-labels": "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+  osm: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
 };
 
 function buildTileUrl(

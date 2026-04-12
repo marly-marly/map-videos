@@ -20,6 +20,11 @@ export const segmentPropsSchema = z.object({
   mapFileEnd: z.string().describe("Second map PNG for tile transition (empty=no transition)"),
   tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
   tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
+  // HUD
+  showDistance: z.boolean().describe("Show distance counter"),
+  showElevation: z.boolean().describe("Show elevation gain counter"),
+  distanceLabel: z.string().describe("Distance label (empty = ↔)"),
+  elevationLabel: z.string().describe("Elevation label (empty = ↑)"),
 });
 
 export interface CameraEffect {
@@ -51,6 +56,14 @@ export interface RouteSegmentVideoProps {
   tileTransitionStart?: number;
   /** Tile crossfade ends at % of duration */
   tileTransitionEnd?: number;
+  /** Show distance counter */
+  showDistance?: boolean;
+  /** Show elevation gain counter */
+  showElevation?: boolean;
+  /** Distance label (empty = ↔) */
+  distanceLabel?: string;
+  /** Elevation label (empty = ↑) */
+  elevationLabel?: string;
 }
 
 export interface SegmentMeta {
@@ -79,6 +92,10 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
   mapFileEnd = "",
   tileTransitionStart = 0,
   tileTransitionEnd = 0,
+  showDistance = true,
+  showElevation = true,
+  distanceLabel = "",
+  elevationLabel = "",
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
@@ -354,46 +371,52 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
         }}
       />
 
-      {/* HUD: Distance counter */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 80,
-          left: 80,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          zIndex: 10,
-          opacity: mapOpacity,
-        }}
-      >
+      {/* HUD */}
+      {(showDistance || showElevation) && (
         <div
           style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 120,
-            fontWeight: 700,
-            color: "white",
-            textShadow:
-              "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
-            lineHeight: 1,
+            position: "absolute",
+            bottom: 80,
+            left: 80,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            zIndex: 10,
+            opacity: mapOpacity,
           }}
         >
-          ↔ {currentDistanceKm.toFixed(1)} km
+          {showDistance && (
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 120,
+                fontWeight: 700,
+                color: "white",
+                textShadow:
+                  "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+                lineHeight: 1,
+              }}
+            >
+              {distanceLabel || "↔"} {currentDistanceKm.toFixed(1)} km
+            </div>
+          )}
+          {showElevation && (
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 72,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.85)",
+                textShadow:
+                  "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+                lineHeight: 1,
+              }}
+            >
+              {elevationLabel || "↑"} {Math.round(cumulativeElevGain).toLocaleString()} m
+            </div>
+          )}
         </div>
-        <div
-          style={{
-            fontFamily: "'Courier New', Courier, monospace",
-            fontSize: 72,
-            fontWeight: 500,
-            color: "rgba(255,255,255,0.85)",
-            textShadow:
-              "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-            lineHeight: 1,
-          }}
-        >
-          ↑ {Math.round(cumulativeElevGain).toLocaleString()} m
-        </div>
-      </div>
+      )}
 
     </AbsoluteFill>
   );

@@ -12,6 +12,10 @@ export interface CentralBingAerialProps {
   mapFileEnd?: string;
   tileTransitionStart?: number;
   tileTransitionEnd?: number;
+  showDistance?: boolean;
+  showElevation?: boolean;
+  distanceLabel?: string;
+  elevationLabel?: string;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -26,6 +30,10 @@ export const CentralBingAerial: React.FC<CentralBingAerialProps> = ({
   mapFileEnd,
   tileTransitionStart,
   tileTransitionEnd,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -37,6 +45,10 @@ export const CentralBingAerial: React.FC<CentralBingAerialProps> = ({
     mapFileEnd={mapFileEnd}
     tileTransitionStart={tileTransitionStart}
     tileTransitionEnd={tileTransitionEnd}
+    showDistance={showDistance}
+    showElevation={showElevation}
+    distanceLabel={distanceLabel}
+    elevationLabel={elevationLabel}
     mapFile="central-bing-aerial.png"
     metaData={typedMeta}
     cameraEffect={{ startZoom: 1.0, endZoom: 1.2, anchor: [0.51, 0.21] }}

@@ -12,6 +12,10 @@ export interface KowloonBingAerialProps {
   mapFileEnd?: string;
   tileTransitionStart?: number;
   tileTransitionEnd?: number;
+  showDistance?: boolean;
+  showElevation?: boolean;
+  distanceLabel?: string;
+  elevationLabel?: string;
 }
 
 const typedMeta = meta as unknown as SegmentMeta;
@@ -26,6 +30,10 @@ export const KowloonBingAerial: React.FC<KowloonBingAerialProps> = ({
   mapFileEnd,
   tileTransitionStart,
   tileTransitionEnd,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -37,6 +45,10 @@ export const KowloonBingAerial: React.FC<KowloonBingAerialProps> = ({
     mapFileEnd={mapFileEnd}
     tileTransitionStart={tileTransitionStart}
     tileTransitionEnd={tileTransitionEnd}
+    showDistance={showDistance}
+    showElevation={showElevation}
+    distanceLabel={distanceLabel}
+    elevationLabel={elevationLabel}
     mapFile="kowloon-bing-aerial.png"
     metaData={typedMeta}
   />

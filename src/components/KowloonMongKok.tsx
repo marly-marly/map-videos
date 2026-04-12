@@ -12,6 +12,10 @@ export interface KowloonMongKokProps {
   mapFileEnd?: string;
   tileTransitionStart?: number;
   tileTransitionEnd?: number;
+  showDistance?: boolean;
+  showElevation?: boolean;
+  distanceLabel?: string;
+  elevationLabel?: string;
 }
 
 const meta = kowloonMongKokMeta as unknown as SegmentMeta;
@@ -26,6 +30,10 @@ export const KowloonMongKok: React.FC<KowloonMongKokProps> = ({
   mapFileEnd,
   tileTransitionStart,
   tileTransitionEnd,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
 }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
@@ -37,6 +45,10 @@ export const KowloonMongKok: React.FC<KowloonMongKokProps> = ({
     mapFileEnd={mapFileEnd}
     tileTransitionStart={tileTransitionStart}
     tileTransitionEnd={tileTransitionEnd}
+    showDistance={showDistance}
+    showElevation={showElevation}
+    distanceLabel={distanceLabel}
+    elevationLabel={elevationLabel}
     mapFile="kowloon-mong-kok.png"
     metaData={meta}
     cameraEffect={{ startZoom: 1.4, endZoom: 1.0, anchor: [0.41, 0.88] }}
