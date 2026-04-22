@@ -1,9 +1,16 @@
 /**
  * Renders a map tile grid as positioned <img> elements.
+ *
  * Uses delayRender/continueRender to ensure all tiles are loaded before
- * Remotion captures the frame.
+ * Remotion captures the frame. A fresh delayRender handle is acquired every
+ * time the set of required tiles changes, so every frame waits for its own
+ * tiles — not just the first one. We also prefetch via the Image() constructor
+ * so tile completion is tracked independently of the DOM <img> tags, which
+ * Remotion may sample before their load events fire in some browsers.
+ *
+ * Failed tiles are retried with exponential backoff before being given up on.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { continueRender, delayRender } from "remotion";
 import type { TileViewport } from "../lib/tile-viewport";
 
@@ -14,6 +21,34 @@ interface TileMapBackgroundProps {
   opacity?: number;
 }
 
+// Retry a tile URL up to MAX_RETRIES times with exponential backoff.
+// Resolves (never rejects) so one flaky tile can't hang the whole frame.
+const MAX_RETRIES = 6;
+function prefetchTile(url: string, isCancelled: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    let attempt = 0;
+    const tryLoad = () => {
+      if (isCancelled()) return resolve();
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => {
+        if (isCancelled()) return resolve();
+        if (attempt < MAX_RETRIES) {
+          const delay = Math.min(3000, 250 * Math.pow(2, attempt));
+          attempt++;
+          setTimeout(tryLoad, delay);
+        } else {
+          // Give up — keep the frame moving. The <img> will keep its own
+          // retry attempts via onError below.
+          resolve();
+        }
+      };
+      img.src = url;
+    };
+    tryLoad();
+  });
+}
+
 export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
   viewport,
   style = "satellite",
@@ -22,8 +57,9 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
 }) => {
   const { gridWidth, gridHeight, cropLeft, cropTop, scale } = viewport;
 
-  // Collect all tile URLs that need to load for this frame
-  const allTileUrls = React.useMemo(() => {
+  // Collect every tile URL the frame needs, so we can block rendering until
+  // they're all fetched (or given up on).
+  const allTileUrls = useMemo(() => {
     const urls: string[] = [];
     if (style === "ocean-composite") {
       const HILL_MAX_ZOOM = 16;
@@ -33,7 +69,9 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
 
       if (hillZoomDiff === 0) {
         viewport.tiles.forEach((t) => {
-          urls.push(`https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${viewport.zoom}/${t.y}/${t.x}`);
+          urls.push(
+            `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${viewport.zoom}/${t.y}/${t.x}`
+          );
         });
       } else {
         const mainMinX = viewport.tileMinX;
@@ -46,12 +84,16 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
         const hMaxY = Math.floor(mainMaxY / hillRatio);
         for (let ty = hMinY; ty <= hMaxY; ty++) {
           for (let tx = hMinX; tx <= hMaxX; tx++) {
-            urls.push(`https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${hillZoom}/${ty}/${tx}`);
+            urls.push(
+              `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${hillZoom}/${ty}/${tx}`
+            );
           }
         }
       }
       viewport.tiles.forEach((t) => {
-        urls.push(`https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`);
+        urls.push(
+          `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`
+        );
       });
     } else {
       viewport.tiles.forEach((t) => urls.push(t.url));
@@ -59,51 +101,51 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
     return urls;
   }, [viewport, style, gridWidth, gridHeight]);
 
-  // Delay render until all tiles are loaded. Retry failed tiles up to 3 times
-  // to handle network throttling from many concurrent requests.
-  const MAX_RETRIES = 3;
-  const [handle] = useState(() => delayRender("Loading map tiles", { timeoutInMilliseconds: 120000 }));
-  const loadedCount = useRef(0);
-  const totalTiles = allTileUrls.length;
-  const continued = useRef(false);
-  const retryCount = useRef<Map<string, number>>(new Map());
+  // Stable join key — lets us depend on URL *contents* instead of array identity.
+  const urlsKey = useMemo(() => allTileUrls.join("|"), [allTileUrls]);
 
-  const checkDone = useCallback(() => {
-    if (loadedCount.current >= totalTiles && !continued.current) {
-      continued.current = true;
+  // One delayRender handle per distinct URL set. Every time the viewport pans
+  // enough to pull in new tiles, we block the frame until those are loaded.
+  useEffect(() => {
+    if (allTileUrls.length === 0) return;
+    const handle = delayRender("Loading map tiles", {
+      timeoutInMilliseconds: 120000,
+    });
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    Promise.all(allTileUrls.map((url) => prefetchTile(url, isCancelled))).then(
+      () => {
+        if (!cancelled) continueRender(handle);
+      }
+    );
+    return () => {
+      cancelled = true;
       continueRender(handle);
-    }
-  }, [handle, totalTiles]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlsKey]);
 
-  const onTileLoad = useCallback(() => {
-    loadedCount.current++;
-    checkDone();
-  }, [checkDone]);
+  // Retry state for the rendered <img> tags themselves. Even with prefetch,
+  // the DOM tags have to re-decode the response from cache; if that fails
+  // visibly we still want to retry rather than show a black square.
+  const retryCount = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    retryCount.current.clear();
+  }, [urlsKey]);
 
-  const onTileError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+  const onTileError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     const src = img.src;
     const retries = retryCount.current.get(src) || 0;
     if (retries < MAX_RETRIES) {
-      // Retry by resetting src after a short delay
       retryCount.current.set(src, retries + 1);
+      const delay = Math.min(3000, 250 * Math.pow(2, retries));
       setTimeout(() => {
         img.src = "";
         img.src = src;
-      }, 500 * (retries + 1));
-    } else {
-      // Give up on this tile after max retries
-      loadedCount.current++;
-      checkDone();
+      }, delay);
     }
-  }, [checkDone]);
-
-  // Reset on tile URL changes
-  useEffect(() => {
-    loadedCount.current = 0;
-    continued.current = false;
-    retryCount.current.clear();
-  }, [allTileUrls]);
+  };
 
   const containerStyle: React.CSSProperties = {
     position: "absolute",
@@ -131,7 +173,6 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
         <img
           key={`${tile.x}-${tile.y}`}
           src={tile.url}
-          onLoad={onTileLoad}
           onError={onTileError}
           style={{
             position: "absolute",
@@ -178,7 +219,8 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
       for (let ty = hMinY; ty <= hMaxY; ty++) {
         for (let tx = hMinX; tx <= hMaxX; tx++) {
           hTiles.push({
-            x: tx, y: ty,
+            x: tx,
+            y: ty,
             pixelLeft: (tx * hillRatio - mainMinX) * 256,
             pixelTop: (ty * hillRatio - mainMinY) * 256,
             url: `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${hillZoom}/${ty}/${tx}`,
@@ -191,7 +233,6 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
             <img
               key={`hill-${tile.x}-${tile.y}`}
               src={tile.url}
-              onLoad={onTileLoad}
               onError={onTileError}
               style={{
                 position: "absolute",

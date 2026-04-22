@@ -4,7 +4,7 @@
  * Drop a .gpx file into public/, set the filename in props, configure
  * start/end km, style, and HUD options in Remotion Studio's sidebar.
  */
-import React, { useMemo, useRef, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import {
   AbsoluteFill,
   continueRender,
@@ -21,26 +21,49 @@ import {
   extractSegment,
   getPreviousRouteCoords,
 } from "../lib/route-processor";
-import { computeViewport, coordsToPixels } from "../lib/tile-viewport";
+import {
+  computeViewport,
+  coordsToPixels,
+  mapProviderEnum,
+  mapProviderOptionalEnum,
+  blendModeEnum,
+  type MapProvider,
+  type MapProviderOptional,
+  type BlendMode,
+} from "../lib/tile-viewport";
 import { TileMapBackground } from "./TileMapBackground";
 
 export const gpxSegmentSchema = z.object({
   gpxFile: z.string().describe("GPX filename in public/ folder"),
-  startKm: z.number().min(0).describe("Start km (0 = route start)"),
-  endKm: z.number().min(0).describe("End km (9999 = full route)"),
+  startKm: z.number().min(0).describe("Start km (0 = route start, decimals allowed e.g. 3.45). If startKm === endKm the dot stays frozen at this km."),
+  endKm: z.number().min(0).describe("End km (9999 = full route, decimals allowed e.g. 5.8). If startKm === endKm no line draws — dot stays still."),
   durationSeconds: z.number().min(1).max(300).describe("Duration in seconds"),
-  // Map tiles
-  provider: z.enum(["esri", "bing", "hillshade", "ocean-composite", "cartodark"]).describe("Map tile provider (start)"),
-  providerEnd: z.enum(["esri", "bing", "hillshade", "ocean-composite", "cartodark"]).describe("Map tile provider (end) — same = no transition"),
-  tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
-  tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
+  // Map tiles — up to three providers render in sequence:
+  //   providerStart → provider → providerEnd
+  providerStart: mapProviderEnum.describe("Earliest map provider (same as 'provider' = no pre-transition)"),
+  providerStart2: mapProviderOptionalEnum.describe("Optional overlay on top of providerStart ('none' = no overlay)"),
+  providerStart2BlendMode: blendModeEnum.describe("Blend mode for providerStart2 over providerStart"),
+  providerStartTransitionStart: z.number().min(0).max(100).describe("providerStart→provider crossfade begins at % of duration"),
+  providerStartTransitionEnd: z.number().min(0).max(100).describe("providerStart→provider crossfade ends at % of duration"),
+  provider: mapProviderEnum.describe("Main map provider (middle era)"),
+  provider2: mapProviderOptionalEnum.describe("Optional overlay on top of provider ('none' = no overlay)"),
+  provider2BlendMode: blendModeEnum.describe("Blend mode for provider2 over provider"),
+  providerEnd: mapProviderEnum.describe("Last map provider (same as 'provider' = no end transition)"),
+  providerEnd2: mapProviderOptionalEnum.describe("Optional overlay on top of providerEnd ('none' = no overlay)"),
+  providerEnd2BlendMode: blendModeEnum.describe("Blend mode for providerEnd2 over providerEnd"),
+  tileTransitionStart: z.number().min(0).max(100).describe("provider→providerEnd crossfade begins at % of duration"),
+  tileTransitionEnd: z.number().min(0).max(100).describe("provider→providerEnd crossfade ends at % of duration"),
   zoom: z.number().min(10).max(19).describe("Tile zoom (19=max detail, 14=overview)"),
   zoomReduction: z.number().min(0).max(5).describe("Reduce tile zoom for the zoomed-out provider (0 = same, 2 = 2 levels lower)"),
+  // Fades — color overlays that sit ABOVE tiles but BELOW the route
+  fadeInColor: z.string().describe("Fade in from this color at start (empty = no fade in)"),
+  fadeOutColor: z.string().describe("Fade out to this color at end (empty = no fade out)"),
+  fadeInOutLength: z.number().min(0).max(60).describe("Fade duration in seconds (applies to both in + out; 0 = off)"),
   // Camera zoom
   cameraStartZoom: z.number().min(1).max(1000).describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
   cameraEndZoom: z.number().min(1).max(1000).describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
   cameraZoomDelay: z.number().min(0).max(100).describe("Delay before zoom starts (% of duration)"),
-  cameraZoomEndDelay: z.number().min(0).max(100).describe("Freeze zoom before end (% of duration)"),
+  cameraZoomEndDelay: z.number().min(0).max(100).describe("Zoom ends at this % of duration (must be > cameraZoomDelay)"),
   cameraAnchorX: z.number().min(0).max(100).describe("Camera zoom pivot X (% from left)"),
   cameraAnchorY: z.number().min(0).max(100).describe("Camera zoom pivot Y (% from top)"),
   // Viewport
@@ -56,8 +79,16 @@ export const gpxSegmentSchema = z.object({
   routeCasing: z.number().min(0).max(200).describe("Dark outline around route (0 = off, 100 = default)"),
   routeShadow: z.number().min(0).max(200).describe("Soft shadow under route (0 = off, 50 = subtle, 100 = default)"),
   showPreviousRoute: z.boolean().describe("Show dim trail of previous route"),
+  // Animation
+  reverseDrawing: z.boolean().describe("Start fully drawn, undraw over time"),
+  cameraAnchorMode: z.enum(["center", "start", "end", "dot"]).describe("Where camera zooms toward (center=default, dot=follows the moving dot)"),
+  cameraTracking: z.enum(["animated", "still"]).describe("animated = zoom + anchor follow per props, still = camera locked at start zoom, no movement"),
   // HUD
-  showHud: z.boolean().describe("Show distance + elevation HUD"),
+  distanceScale: z.number().min(50).max(200).describe("Scale km counter to match Strava (100=as-is, 112=for route.gpx)"),
+  showDistance: z.boolean().describe("Show distance counter"),
+  showElevation: z.boolean().describe("Show elevation counter"),
+  distanceLabel: z.string().describe("Distance label (empty = ↔)"),
+  elevationLabel: z.string().describe("Elevation label (empty = ↑)"),
 });
 
 export interface GPXSegmentProps {
@@ -68,7 +99,11 @@ export interface GPXSegmentProps {
   /** End km (use a large number like 9999 for full route) */
   endKm: number;
   /** Map provider */
-  provider: "esri" | "bing" | "hillshade" | "ocean-composite" | "cartodark";
+  provider: MapProvider;
+  /** Optional overlay on top of provider (`none` = no overlay) */
+  provider2: MapProviderOptional;
+  /** Blend mode for provider2 over provider */
+  provider2BlendMode: BlendMode;
   /** Route line color */
   routeColor: string;
   /** Route line width */
@@ -83,10 +118,24 @@ export interface GPXSegmentProps {
   routeCasing: number;
   /** Soft shadow under route (0 = off, 100 = default) */
   routeShadow: number;
-  /** Show distance + elevation HUD */
-  showHud: boolean;
+  /** Scale km counter to match Strava */
+  distanceScale: number;
+  /** Show distance counter */
+  showDistance: boolean;
+  /** Show elevation counter */
+  showElevation: boolean;
+  /** Distance label (empty = ↔) */
+  distanceLabel: string;
+  /** Elevation label (empty = ↑) */
+  elevationLabel: string;
   /** Show dim trail of previous route */
   showPreviousRoute: boolean;
+  /** Start fully drawn, undraw over time */
+  reverseDrawing: boolean;
+  /** Where camera zooms toward */
+  cameraAnchorMode: "center" | "start" | "end" | "dot";
+  /** Camera tracking mode — "still" disables all camera movement */
+  cameraTracking: "animated" | "still";
   /** Tile zoom level (17 = satellite detail, 14 = overview) */
   zoom: number;
   /** Reduce tile zoom for the zoomed-out provider */
@@ -99,12 +148,32 @@ export interface GPXSegmentProps {
   offsetY: number;
   /** Duration in seconds */
   durationSeconds: number;
+  /** Earliest map provider (same as `provider` = no pre-transition) */
+  providerStart: MapProvider;
+  /** Optional overlay on top of providerStart (`none` = no overlay) */
+  providerStart2: MapProviderOptional;
+  /** Blend mode for providerStart2 over providerStart */
+  providerStart2BlendMode: BlendMode;
+  /** providerStart→provider crossfade begin (% of duration) */
+  providerStartTransitionStart: number;
+  /** providerStart→provider crossfade end (% of duration) */
+  providerStartTransitionEnd: number;
   /** Tile provider to transition TO (same as provider = no transition) */
-  providerEnd: "esri" | "bing" | "hillshade" | "ocean-composite" | "cartodark";
+  providerEnd: MapProvider;
+  /** Optional overlay on top of providerEnd (`none` = no overlay) */
+  providerEnd2: MapProviderOptional;
+  /** Blend mode for providerEnd2 over providerEnd */
+  providerEnd2BlendMode: BlendMode;
   /** When tile crossfade begins (0-100 % of duration) */
   tileTransitionStart: number;
   /** When tile crossfade completes (0-100 % of duration) */
   tileTransitionEnd: number;
+  /** Fade in from this color (empty = no fade in) */
+  fadeInColor: string;
+  /** Fade out to this color (empty = no fade out) */
+  fadeOutColor: string;
+  /** Fade duration in seconds */
+  fadeInOutLength: number;
   /** Camera zoom at start (100 = no zoom, 150 = 50% in) */
   cameraStartZoom: number;
   /** Camera zoom at end (100 = no zoom, 150 = 50% in) */
@@ -124,6 +193,8 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   startKm,
   endKm,
   provider,
+  provider2,
+  provider2BlendMode,
   routeColor,
   routeWidth,
   dotSize,
@@ -131,16 +202,33 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   routeGlow,
   routeCasing,
   routeShadow,
-  showHud,
+  distanceScale,
+  showDistance,
+  showElevation,
+  distanceLabel,
+  elevationLabel,
   showPreviousRoute,
+  reverseDrawing,
+  cameraAnchorMode,
+  cameraTracking,
   zoom,
   zoomReduction,
   padding,
   offsetX,
   offsetY,
+  providerStart,
+  providerStart2,
+  providerStart2BlendMode,
+  providerStartTransitionStart,
+  providerStartTransitionEnd,
   providerEnd,
+  providerEnd2,
+  providerEnd2BlendMode,
   tileTransitionStart,
   tileTransitionEnd,
+  fadeInColor,
+  fadeOutColor,
+  fadeInOutLength,
   cameraStartZoom,
   cameraEndZoom,
   cameraZoomDelay,
@@ -243,6 +331,60 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
     });
   }, [segment, endZoomLevel, effectivePadding, oX, oY, providerEnd, hasTileTransition]);
 
+  // Third viewport: providerStart (rendered before 'provider' takes over).
+  // Always uses the main zoom level — there's no extra zoomReduction era for it.
+  const hasProviderStart = providerStart !== provider;
+  const viewportStart = useMemo(() => {
+    if (!segment || !hasProviderStart) return null;
+    return computeViewport(segment.coords, {
+      zoom: startZoomLevel,
+      padding: effectivePadding,
+      offsetX: oX,
+      offsetY: oY,
+      provider: providerStart === "ocean-composite" ? "hillshade" : providerStart,
+    });
+  }, [segment, startZoomLevel, effectivePadding, oX, oY, providerStart, hasProviderStart]);
+
+  // Secondary / overlay viewports for each era. Only computed when the
+  // corresponding "providerX2" is not "none". Each gets its own viewport
+  // because zoom caps differ per provider (see TILE_MAX_ZOOM) — computeViewport
+  // clamps internally so the secondary tiles stay within their server's cap.
+  const hasProviderStart2 = providerStart2 !== "none";
+  const viewportStart2 = useMemo(() => {
+    if (!segment || !hasProviderStart || !hasProviderStart2) return null;
+    return computeViewport(segment.coords, {
+      zoom: startZoomLevel,
+      padding: effectivePadding,
+      offsetX: oX,
+      offsetY: oY,
+      provider: providerStart2 === "ocean-composite" ? "hillshade" : providerStart2,
+    });
+  }, [segment, startZoomLevel, effectivePadding, oX, oY, providerStart2, hasProviderStart, hasProviderStart2]);
+
+  const hasProvider2 = provider2 !== "none";
+  const viewport2 = useMemo(() => {
+    if (!segment || !hasProvider2) return null;
+    return computeViewport(segment.coords, {
+      zoom: startZoomLevel,
+      padding: effectivePadding,
+      offsetX: oX,
+      offsetY: oY,
+      provider: provider2 === "ocean-composite" ? "hillshade" : provider2,
+    });
+  }, [segment, startZoomLevel, effectivePadding, oX, oY, provider2, hasProvider2]);
+
+  const hasProviderEnd2 = providerEnd2 !== "none";
+  const viewportEnd2 = useMemo(() => {
+    if (!segment || !hasTileTransition || !hasProviderEnd2) return null;
+    return computeViewport(segment.coords, {
+      zoom: endZoomLevel,
+      padding: effectivePadding,
+      offsetX: oX,
+      offsetY: oY,
+      provider: providerEnd2 === "ocean-composite" ? "hillshade" : providerEnd2,
+    });
+  }, [segment, endZoomLevel, effectivePadding, oX, oY, providerEnd2, hasTileTransition, hasProviderEnd2]);
+
   // Convert coordinates to pixels
   const segmentPoints = useMemo(() => {
     if (!segment || !viewport) return [];
@@ -274,32 +416,67 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
     return d;
   }, [previousPoints]);
 
-  // Path measurement
-  const pathRef = useRef<SVGPathElement>(null);
-  const [pathLength, setPathLength] = useState(0);
-
-  useEffect(() => {
-    if (pathRef.current) {
-      setPathLength(pathRef.current.getTotalLength());
+  // Path measurement — computed synchronously from segmentPoints.
+  // Previously used SVGPathElement.getTotalLength()/getPointAtLength() via a
+  // useEffect, which caused the dot to lag one frame behind path changes and
+  // visibly detach from the line during camera panning. Computing lengths in
+  // JS keeps the dot and the drawn line in perfect sync every frame.
+  const pathMetrics = useMemo(() => {
+    if (segmentPoints.length < 2) {
+      return { totalLength: 0, cumLengths: [0] };
     }
-  }, [svgPath]);
+    const cumLengths: number[] = [0];
+    let total = 0;
+    for (let i = 1; i < segmentPoints.length; i++) {
+      const dx = segmentPoints[i].x - segmentPoints[i - 1].x;
+      const dy = segmentPoints[i].y - segmentPoints[i - 1].y;
+      total += Math.hypot(dx, dy);
+      cumLengths.push(total);
+    }
+    return { totalLength: total, cumLengths };
+  }, [segmentPoints]);
+
+  const pathLength = pathMetrics.totalLength;
 
   // Animation progress
   const progress = frame / durationInFrames;
   const drawEnd = 0.85;
-  const easedDraw = Math.min(1, Math.max(0, progress / drawEnd));
+  const rawDraw = Math.min(1, Math.max(0, progress / drawEnd));
+  // Reverse: start fully drawn (1), undraw to 0
+  const easedDraw = reverseDrawing ? 1 - rawDraw : rawDraw;
   const dashOffset =
     pathLength > 0 ? pathLength * (1 - easedDraw) : pathLength;
 
-  // Runner dot
-  const currentPoint = useMemo(() => {
-    if (!pathRef.current || pathLength === 0) return { x: 0, y: 0 };
-    const pt = pathRef.current.getPointAtLength(pathLength * easedDraw);
-    return { x: pt.x, y: pt.y };
-  }, [easedDraw, pathLength]);
-
   // Distance
   const segmentLengthKm = segment?.segmentLengthKm ?? 0;
+  // When startKm === endKm the segment has zero length — no line is drawn,
+  // the dot just sits on the single point.
+  const isPointOnly = segmentLengthKm === 0;
+
+  // Runner dot position — binary-search the polyline to the drawn distance.
+  // Falls back to the single point location for degenerate segments.
+  const currentPoint = useMemo(() => {
+    if (isPointOnly && segmentPoints.length > 0) {
+      return { x: segmentPoints[0].x, y: segmentPoints[0].y };
+    }
+    if (segmentPoints.length === 0) return { x: 0, y: 0 };
+    if (segmentPoints.length === 1) return segmentPoints[0];
+    const target = pathMetrics.totalLength * easedDraw;
+    const cum = pathMetrics.cumLengths;
+    let lo = 0;
+    let hi = cum.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] <= target) lo = mid;
+      else hi = mid;
+    }
+    const segLen = cum[hi] - cum[lo];
+    const t = segLen > 0 ? (target - cum[lo]) / segLen : 0;
+    return {
+      x: segmentPoints[lo].x + t * (segmentPoints[hi].x - segmentPoints[lo].x),
+      y: segmentPoints[lo].y + t * (segmentPoints[hi].y - segmentPoints[lo].y),
+    };
+  }, [easedDraw, pathMetrics, isPointOnly, segmentPoints]);
   // Read distance from actual segmentDistances (which skips ferry gaps)
   const currentDistanceKm = useMemo(() => {
     if (!segment) return startKm;
@@ -308,8 +485,8 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
       dists.length - 1,
       Math.round(easedDraw * (dists.length - 1))
     );
-    return startKm + dists[targetIdx];
-  }, [segment, startKm, easedDraw]);
+    return (startKm + dists[targetIdx]) * (distanceScale / 100);
+  }, [segment, startKm, easedDraw, distanceScale]);
 
   // Elevation gain
   const cumulativeElevGain = useMemo(() => {
@@ -340,6 +517,38 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   const glowPulse = pulseRate > 0
     ? 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2 * pulseRate)
     : 0.7;
+
+  // Dynamic camera anchor based on mode (must be before early return).
+  // In "still" mode, the "dot" anchor (which moves with the dot = bounces) is
+  // replaced by cameraAnchorX/Y. The static anchor modes (center/start/end)
+  // still work in still mode — they don't bounce, they just pick a fixed
+  // zoom target.
+  const effectiveAnchor = useMemo(() => {
+    const resolvedMode =
+      cameraTracking === "still" && cameraAnchorMode === "dot"
+        ? "center"
+        : cameraAnchorMode;
+    if (resolvedMode === "center") {
+      return { x: cameraAnchorX, y: cameraAnchorY };
+    }
+    if (resolvedMode === "start" && segmentPoints.length > 0) {
+      return {
+        x: (segmentPoints[0].x / width) * 100,
+        y: (segmentPoints[0].y / height) * 100,
+      };
+    }
+    if (resolvedMode === "end" && segmentPoints.length > 0) {
+      const last = segmentPoints[segmentPoints.length - 1];
+      return { x: (last.x / width) * 100, y: (last.y / height) * 100 };
+    }
+    if (resolvedMode === "dot" && currentPoint) {
+      return {
+        x: (currentPoint.x / width) * 100,
+        y: (currentPoint.y / height) * 100,
+      };
+    }
+    return { x: cameraAnchorX, y: cameraAnchorY };
+  }, [cameraTracking, cameraAnchorMode, cameraAnchorX, cameraAnchorY, segmentPoints, currentPoint, width, height]);
 
   // Loading state
   if (!viewport || !segment) {
@@ -372,17 +581,40 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
   // Camera zoom — normalized so the most zoomed-out state = scale 1.0.
   // The viewport is computed at the widest (most zoomed-out) padding, so
   // CSS scale only ever goes UP from 1.0, preventing any black edges.
-  const delayStart = cameraZoomDelay / 100;
-  const delayEnd = cameraZoomEndDelay / 100;
-  const zoomWindow = 1 - delayStart - delayEnd;
+  // Both delays are measured from the start of the video (%).
+  // Zoom animates between cameraZoomDelay% and cameraZoomEndDelay%.
+  // If endDelay <= startDelay or endDelay is 0, zoom runs from startDelay to 100%.
+  const zoomStart = cameraZoomDelay / 100;
+  const zoomEnd = cameraZoomEndDelay > cameraZoomDelay ? cameraZoomEndDelay / 100 : 1;
+  const zoomWindow = zoomEnd - zoomStart;
   const linearProgress = zoomWindow <= 0
     ? 0
-    : Math.min(1, Math.max(0, (frame / durationInFrames - delayStart) / zoomWindow));
+    : Math.min(1, Math.max(0, (frame / durationInFrames - zoomStart) / zoomWindow));
   // Smoothstep ease-in-out: gradual acceleration and deceleration
   const cameraProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
   const startZ = cameraStartZoom / 100;
   const endZ = cameraEndZoom / 100;
   const cameraZoom = startZ + (endZ - startZ) * cameraProgress;
+
+  // Fade overlays (sit above tiles, below the route so the route stays visible).
+  const fadeFrames = Math.max(0, fadeInOutLength) * fps;
+  const fadeInOpacity = fadeFrames > 0 && fadeInColor
+    ? Math.max(0, 1 - frame / fadeFrames)
+    : 0;
+  const fadeOutOpacity = fadeFrames > 0 && fadeOutColor
+    ? Math.max(0, (frame - (durationInFrames - fadeFrames)) / fadeFrames)
+    : 0;
+
+  // providerStart → provider crossfade.
+  // Before providerStartTransitionStart: providerStart fully opaque, provider hidden.
+  // After providerStartTransitionEnd: providerStart hidden, provider fully opaque.
+  const pStartF = (providerStartTransitionStart / 100) * durationInFrames;
+  const pEndF = (providerStartTransitionEnd / 100) * durationInFrames;
+  const providerRevealOpacity = hasProviderStart
+    ? (pEndF > pStartF
+        ? interpolate(frame, [pStartF, pEndF], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+        : (frame >= pStartF ? 1 : 0))
+    : 1;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
@@ -396,18 +628,81 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
           height: "100%",
           overflow: "hidden",
           transform: `scale(${cameraZoom})`,
-          transformOrigin: `${cameraAnchorX}% ${cameraAnchorY}%`,
+          transformOrigin: `${effectiveAnchor.x}% ${effectiveAnchor.y}%`,
         }}
       >
-      {/* Map tiles — start provider */}
-      <TileMapBackground
-        viewport={viewport}
-        style={
-          provider === "ocean-composite" ? "ocean-composite" : "satellite"
-        }
-      />
+      {/* Map tiles — providerStart era (earliest; sits at the bottom) */}
+      {hasProviderStart && viewportStart && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            isolation: "isolate",
+          }}
+        >
+          <TileMapBackground
+            viewport={viewportStart}
+            style={providerStart === "ocean-composite" ? "ocean-composite" : "satellite"}
+          />
+          {hasProviderStart2 && viewportStart2 && providerStart2 !== "none" && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                mixBlendMode: providerStart2BlendMode,
+              }}
+            >
+              <TileMapBackground
+                viewport={viewportStart2}
+                style={providerStart2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Map tiles — end provider (crossfade on top) */}
+      {/* Map tiles — provider era (middle; crossfades in over providerStart) */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          isolation: "isolate",
+          opacity: providerRevealOpacity,
+        }}
+      >
+        <TileMapBackground
+          viewport={viewport}
+          style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
+        />
+        {hasProvider2 && viewport2 && provider2 !== "none" && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              mixBlendMode: provider2BlendMode,
+            }}
+          >
+            <TileMapBackground
+              viewport={viewport2}
+              style={provider2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Map tiles — providerEnd era (crossfade on top at the end of the video) */}
       {hasTileTransition && viewportEnd && (() => {
         const startF = (tileTransitionStart / 100) * durationInFrames;
         const endF = (tileTransitionEnd / 100) * durationInFrames;
@@ -415,13 +710,73 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
           ? interpolate(frame, [startF, endF], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
           : 1;
         return (
-          <TileMapBackground
-            viewport={viewportEnd}
-            style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
-            opacity={endOpacity}
-          />
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              isolation: "isolate",
+              opacity: endOpacity,
+            }}
+          >
+            <TileMapBackground
+              viewport={viewportEnd}
+              style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
+            />
+            {hasProviderEnd2 && viewportEnd2 && providerEnd2 !== "none" && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  mixBlendMode: providerEnd2BlendMode,
+                }}
+              >
+                <TileMapBackground
+                  viewport={viewportEnd2}
+                  style={providerEnd2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+                />
+              </div>
+            )}
+          </div>
         );
       })()}
+
+      {/* Fade-in overlay (color covers tiles but is underneath the route) */}
+      {fadeInColor && fadeInOpacity > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: fadeInColor,
+            opacity: fadeInOpacity,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/* Fade-out overlay */}
+      {fadeOutColor && fadeOutOpacity > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: fadeOutColor,
+            opacity: fadeOutOpacity,
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       {/* SVG route overlay */}
       <svg
@@ -500,7 +855,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
         )}
 
         {/* Route shadow (soft blur underneath) */}
-        {routeShadow > 0 && (
+        {routeShadow > 0 && !isPointOnly && (
           <path
             d={svgPath}
             fill="none"
@@ -515,7 +870,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
         )}
 
         {/* Route casing (dark outline) */}
-        {routeCasing > 0 && (
+        {routeCasing > 0 && !isPointOnly && (
           <path
             d={svgPath}
             fill="none"
@@ -529,21 +884,22 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
         )}
 
         {/* Route line */}
-        <path
-          ref={pathRef}
-          d={svgPath}
-          fill="none"
-          stroke={routeColor}
-          strokeWidth={routeWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray={pathLength}
-          strokeDashoffset={dashOffset}
-          filter={routeGlow > 0 ? "url(#gpx-route-glow)" : undefined}
-        />
+        {!isPointOnly && (
+          <path
+            d={svgPath}
+            fill="none"
+            stroke={routeColor}
+            strokeWidth={routeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={pathLength}
+            strokeDashoffset={dashOffset}
+            filter={routeGlow > 0 ? "url(#gpx-route-glow)" : undefined}
+          />
+        )}
 
         {/* Runner dot */}
-        {easedDraw > 0 && dotSize > 0 && (() => {
+        {(isPointOnly || easedDraw > 0 || reverseDrawing) && dotSize > 0 && (() => {
           const ds = dotSize / 100;
           const glowR = 32 * ds;
           const innerR = 15 * ds;
@@ -590,7 +946,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
       />
 
       {/* HUD */}
-      {showHud && (
+      {(showDistance || showElevation) && (
         <div
           style={{
             position: "absolute",
@@ -602,32 +958,36 @@ export const GPXSegment: React.FC<GPXSegmentProps> = ({
             zIndex: 10,
           }}
         >
-          <div
-            style={{
-              fontFamily: "'Courier New', Courier, monospace",
-              fontSize: 120,
-              fontWeight: 700,
-              color: "white",
-              textShadow:
-                "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
-              lineHeight: 1,
-            }}
-          >
-            ↔ {currentDistanceKm.toFixed(1)} km
-          </div>
-          <div
-            style={{
-              fontFamily: "'Courier New', Courier, monospace",
-              fontSize: 72,
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.85)",
-              textShadow:
-                "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-              lineHeight: 1,
-            }}
-          >
-            ↑ {Math.round(cumulativeElevGain).toLocaleString()} m
-          </div>
+          {showDistance && (
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 120,
+                fontWeight: 700,
+                color: "white",
+                textShadow:
+                  "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+                lineHeight: 1,
+              }}
+            >
+              {distanceLabel || "↔"} {currentDistanceKm.toFixed(1)} km
+            </div>
+          )}
+          {showElevation && (
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 72,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.85)",
+                textShadow:
+                  "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+                lineHeight: 1,
+              }}
+            >
+              {elevationLabel || "↑"} {Math.round(cumulativeElevGain).toLocaleString()} m
+            </div>
+          )}
         </div>
       )}
     </AbsoluteFill>

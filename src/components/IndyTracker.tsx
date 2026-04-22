@@ -4,11 +4,12 @@
  * The camera closely follows the moving dot as it traces the route,
  * panning the map dynamically to keep the dot near the center.
  */
-import React, { useMemo, useRef, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import {
   AbsoluteFill,
   continueRender,
   delayRender,
+  Img,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
@@ -20,7 +21,13 @@ import {
   processRoute,
   extractSegment,
 } from "../lib/route-processor";
-import { computeViewport, coordsToPixels } from "../lib/tile-viewport";
+import {
+  computeViewport,
+  coordsToPixels,
+  mapProviderEnum,
+  mapProviderOptionalEnum,
+  blendModeEnum,
+} from "../lib/tile-viewport";
 import { TileMapBackground } from "./TileMapBackground";
 import { lngToTileX, latToTileY, tileXToLng, tileYToLat, TILE_SIZE } from "../lib/mercator";
 
@@ -34,14 +41,12 @@ export const indyTrackerSchema = z.object({
   endKm: z.number().min(0).describe("End km (9999 = full route)"),
   durationSeconds: z.number().min(1).max(300).describe("Video duration in seconds"),
   // Map
-  provider: z.enum([
-    "esri", "bing", "hillshade", "ocean-composite", "cartodark",
-    "esri-topo", "carto-voyager", "carto-light", "carto-dark-labels", "osm",
-  ]).describe("Start tile provider"),
-  providerEnd: z.enum([
-    "esri", "bing", "hillshade", "ocean-composite", "cartodark",
-    "esri-topo", "carto-voyager", "carto-light", "carto-dark-labels", "osm",
-  ]).describe("End tile provider (same = no transition)"),
+  provider: mapProviderEnum.describe("Start tile provider"),
+  provider2: mapProviderOptionalEnum.describe("Optional overlay on top of provider ('none' = no overlay)"),
+  provider2BlendMode: blendModeEnum.describe("Blend mode for provider2 over provider"),
+  providerEnd: mapProviderEnum.describe("End tile provider (same = no transition)"),
+  providerEnd2: mapProviderOptionalEnum.describe("Optional overlay on top of providerEnd ('none' = no overlay)"),
+  providerEnd2BlendMode: blendModeEnum.describe("Blend mode for providerEnd2 over providerEnd"),
   tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
   tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
   zoom: z.number().min(10).max(19).describe("Tile zoom (higher = more detail)"),
@@ -62,12 +67,38 @@ export const indyTrackerSchema = z.object({
   photos: z.string().describe("Comma-separated photo filenames"),
   photosFolder: z.string().describe("Subfolder in public/ for photos"),
   photoPositions: z.string().describe("Comma-separated km values where photos appear (e.g. 2.5,4.0,6.3)"),
-  photoStyle: z.enum(["scattered", "neat", "on-route"]).describe("scattered = tilted prints, neat = aligned, on-route = placed on the trail"),
-  photoSize: z.number().min(1).max(50).describe("Photo size (% of viewport width)"),
+  photoStyle: z.enum(["scattered", "neat", "on-route", "backdrop"]).describe("scattered/neat/on-route = pinned thumbnails, backdrop = full-screen photo behind the map"),
+  photoSize: z.number().min(1).max(50).describe("Photo size (% of viewport width) — pinned styles only"),
   photoTilt: z.number().min(0).max(30).describe("Random tilt on photos (0=straight, 8=default scattered, 30=wild)"),
   photoReveal: z.enum(["fade", "drop", "instant"]).describe("How photos appear when line reaches them"),
   photoRevealSpeed: z.number().min(10).max(500).describe("Reveal animation speed (100=default, 50=slower, 200=faster)"),
   photoSeed: z.number().min(0).max(9999).describe("Random seed for scattered placement"),
+  // Backdrop photo controls (only used when photoStyle === "backdrop")
+  photoBlendMode: blendModeEnum.describe("How the map blends over the backdrop photo (backdrop style only)"),
+  photoBackdropOpacity: z.number().min(0).max(100).describe("Backdrop photo intensity (100=full, 0=hidden)"),
+  photoMovement: z
+    .enum([
+      "none",
+      "ken-burns",
+      "zoom-in",
+      "zoom-out",
+      "pan-left",
+      "pan-right",
+      "pan-up",
+      "pan-down",
+    ])
+    .describe("Cinematic movement for backdrop photos: zoomed in first so pans never show black edges"),
+  photoTransition: z
+    .enum([
+      "crossfade",
+      "cut",
+      "dip-to-black",
+      "slide-left",
+      "slide-up",
+      "wipe",
+      "zoom",
+    ])
+    .describe("How backdrop photos hand off to the next one (backdrop style only)"),
   // HUD
   distanceScale: z.number().min(50).max(200).describe("Scale km counter to match Strava (100=as-is, 112=for route.gpx)"),
   showDistance: z.boolean().describe("Show distance counter"),
@@ -164,6 +195,75 @@ interface PhotoPlacement {
 }
 
 /**
+ * Per-layer style for one side of a backdrop photo transition.
+ * `role` is "from" (outgoing) or "to" (incoming). `progress` is 0→1 across
+ * the transition window. Transforms compose on a wrapper div so the inner
+ * <Img>'s Ken-Burns movement keeps working independently.
+ */
+type TransitionLayerStyle = {
+  opacity: number;
+  transform: string;
+  clipPath?: string;
+  hidden?: boolean;
+};
+
+function getTransitionStyle(
+  mode:
+    | "crossfade"
+    | "cut"
+    | "dip-to-black"
+    | "slide-left"
+    | "slide-up"
+    | "wipe"
+    | "zoom",
+  role: "from" | "to",
+  progress: number,
+): TransitionLayerStyle {
+  const p = Math.max(0, Math.min(1, progress));
+  switch (mode) {
+    case "cut":
+      // No window — renderer never calls us mid-transition, just pass through.
+      return role === "from"
+        ? { opacity: 0, transform: "none", hidden: true }
+        : { opacity: 1, transform: "none" };
+    case "crossfade":
+      return role === "from"
+        ? { opacity: 1 - p, transform: "none" }
+        : { opacity: p, transform: "none" };
+    case "dip-to-black":
+      // Photo fades out in first half, next fades in second half.
+      // A full-screen black overlay (rendered separately) peaks at p=0.5
+      // to cover map + route too.
+      return role === "from"
+        ? { opacity: Math.max(0, 1 - 2 * p), transform: "none" }
+        : { opacity: Math.max(0, 2 * p - 1), transform: "none" };
+    case "slide-left":
+      // New photo slides in from the right; old slides out to the left.
+      return role === "from"
+        ? { opacity: 1, transform: `translateX(${-100 * p}%)` }
+        : { opacity: 1, transform: `translateX(${100 * (1 - p)}%)` };
+    case "slide-up":
+      return role === "from"
+        ? { opacity: 1, transform: `translateY(${-100 * p}%)` }
+        : { opacity: 1, transform: `translateY(${100 * (1 - p)}%)` };
+    case "wipe":
+      // New photo wipes in from left to right via clip-path inset.
+      return role === "from"
+        ? { opacity: 1, transform: "none" }
+        : {
+            opacity: 1,
+            transform: "none",
+            clipPath: `inset(0 ${100 * (1 - p)}% 0 0)`,
+          };
+    case "zoom":
+      // Old zooms forward and fades; new comes in from smaller scale.
+      return role === "from"
+        ? { opacity: 1 - p, transform: `scale(${1 + 0.3 * p})` }
+        : { opacity: p, transform: `scale(${0.85 + 0.15 * p})` };
+  }
+}
+
+/**
  * Compute a viewport centered on a geographic point.
  * The visible area is determined by zoom level — at zoom 17, each pixel
  * covers ~1.1m at lat 22, so 3840px ≈ 4.2km wide.
@@ -212,7 +312,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
   startKm,
   endKm,
   provider,
+  provider2,
+  provider2BlendMode,
   providerEnd,
+  providerEnd2,
+  providerEnd2BlendMode,
   tileTransitionStart,
   tileTransitionEnd,
   zoom,
@@ -236,6 +340,10 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
   photoReveal,
   photoRevealSpeed,
   photoSeed,
+  photoBlendMode,
+  photoBackdropOpacity,
+  photoMovement,
+  photoTransition,
   distanceScale,
   showDistance,
   showElevation,
@@ -495,6 +603,21 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
     return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, providerEnd, cameraZoom / 100);
   }, [smoothedCameraGeo, zoom, providerEnd, cameraZoom, hasTileTransition]);
 
+  // Secondary / overlay viewports for each era. Only computed when the
+  // corresponding providerX2 is not "none". Each gets its own viewport so
+  // per-provider tile caps (TILE_MAX_ZOOM) are respected independently.
+  const hasProvider2 = provider2 !== "none";
+  const viewport2 = useMemo(() => {
+    if (!smoothedCameraGeo || !hasProvider2) return null;
+    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, provider2, cameraZoom / 100);
+  }, [smoothedCameraGeo, zoom, provider2, cameraZoom, hasProvider2]);
+
+  const hasProviderEnd2 = providerEnd2 !== "none";
+  const viewportEnd2 = useMemo(() => {
+    if (!smoothedCameraGeo || !hasTileTransition || !hasProviderEnd2) return null;
+    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, providerEnd2, cameraZoom / 100);
+  }, [smoothedCameraGeo, zoom, providerEnd2, cameraZoom, hasTileTransition, hasProviderEnd2]);
+
   // Convert ALL segment coords to pixels in the dynamic viewport
   const segmentPoints = useMemo(() => {
     if (!segment || !viewport) return [];
@@ -538,22 +661,55 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
     return d;
   }, [segmentPoints, smoothRoute]);
 
-  // Path measurement
-  const pathRef = useRef<SVGPathElement>(null);
-  const [pathLength, setPathLength] = useState(0);
+  // Path measurement — computed synchronously from segmentPoints.
+  // Previously we used SVGPathElement.getTotalLength() and getPointAtLength(),
+  // which required an effect to run after the DOM committed. That caused the
+  // leading dot to use stale path data for one frame whenever segmentPoints
+  // changed (e.g. while the camera panned), making the dot visibly detach from
+  // the line. Computing lengths in JS from the same points we build the path
+  // from keeps the dot and line perfectly in sync every frame.
+  const pathMetrics = useMemo(() => {
+    if (segmentPoints.length < 2) {
+      return { totalLength: 0, cumLengths: [0] };
+    }
+    const cumLengths: number[] = [0];
+    let total = 0;
+    for (let i = 1; i < segmentPoints.length; i++) {
+      const dx = segmentPoints[i].x - segmentPoints[i - 1].x;
+      const dy = segmentPoints[i].y - segmentPoints[i - 1].y;
+      total += Math.hypot(dx, dy);
+      cumLengths.push(total);
+    }
+    return { totalLength: total, cumLengths };
+  }, [segmentPoints]);
 
-  useEffect(() => {
-    if (pathRef.current) setPathLength(pathRef.current.getTotalLength());
-  }, [svgPath]);
-
+  const pathLength = pathMetrics.totalLength;
   const dashOffset = pathLength > 0 ? pathLength * (1 - easedDraw) : pathLength;
 
-  // Runner dot position
+  // Runner dot position — binary-search the polyline to the drawn distance.
+  // Note: this measures polyline length, not bezier arc length. For the
+  // tension values we use in practice the two agree to well under a pixel,
+  // and crucially the dot lives on the *polyline* vertices the path passes
+  // through, so the dot tracks the visible line instead of floating ahead.
   const currentPoint = useMemo(() => {
-    if (!pathRef.current || pathLength === 0) return { x: 0, y: 0 };
-    const pt = pathRef.current.getPointAtLength(pathLength * easedDraw);
-    return { x: pt.x, y: pt.y };
-  }, [easedDraw, pathLength]);
+    if (segmentPoints.length === 0) return { x: 0, y: 0 };
+    if (segmentPoints.length === 1) return segmentPoints[0];
+    const target = pathMetrics.totalLength * easedDraw;
+    const cum = pathMetrics.cumLengths;
+    let lo = 0;
+    let hi = cum.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] <= target) lo = mid;
+      else hi = mid;
+    }
+    const segLen = cum[hi] - cum[lo];
+    const t = segLen > 0 ? (target - cum[lo]) / segLen : 0;
+    return {
+      x: segmentPoints[lo].x + t * (segmentPoints[hi].x - segmentPoints[lo].x),
+      y: segmentPoints[lo].y + t * (segmentPoints[hi].y - segmentPoints[lo].y),
+    };
+  }, [segmentPoints, easedDraw, pathMetrics]);
 
   // Elevation gain
   const cumulativeElevGain = useMemo(() => {
@@ -658,6 +814,13 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
     return coordsToPixels(geoCoords, viewport);
   }, [viewport, photoList]);
 
+  // Backdrop photos — sorted by km so we can crossfade from one to the next
+  // as the dot crosses trigger points. Used only when photoStyle === "backdrop".
+  const backdropPhotos = useMemo(() => {
+    if (photoStyle !== "backdrop") return [];
+    return [...photoList].sort((a, b) => a.km - b.km);
+  }, [photoList, photoStyle]);
+
   // Loading state
   if (!viewport || !segment) {
     return (
@@ -671,15 +834,230 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
 
   const ds = dotSize / 100;
 
+  // Backdrop transition state.
+  //
+  // Instead of treating each photo independently, we resolve the "from" and
+  // "to" photos involved in any currently-happening transition, plus the
+  // progress (0 = from is whole, 1 = to is whole). Cut has no transition
+  // window; everything else uses backdropFadeWindow. Downstream code picks
+  // per-transition styling (opacity/transform/clipPath).
+  const backdropFadeWindow =
+    (segmentLengthKm * 0.03) / (photoRevealSpeed / 100);
+  const currentKmForBackdrop = segmentLengthKm * easedDraw;
+
+  let backdropActiveIndex = -1;
+  for (let i = 0; i < backdropPhotos.length; i++) {
+    if (backdropPhotos[i].km <= currentKmForBackdrop) backdropActiveIndex = i;
+    else break;
+  }
+  const transitionWindow = photoTransition === "cut" ? 0 : backdropFadeWindow;
+  let transitionFrom = backdropActiveIndex;
+  let transitionTo = -1;
+  let transitionProgress = 0;
+  if (backdropActiveIndex > 0 && transitionWindow > 0) {
+    const activeKm = backdropPhotos[backdropActiveIndex].km;
+    if (currentKmForBackdrop < activeKm + transitionWindow) {
+      transitionFrom = backdropActiveIndex - 1;
+      transitionTo = backdropActiveIndex;
+      transitionProgress =
+        (currentKmForBackdrop - activeKm) / transitionWindow;
+    }
+  }
+
+  const isBackdrop = photoStyle === "backdrop";
+  const mapBlendMode = isBackdrop ? photoBlendMode : "normal";
+
+  // Cinematic movement for backdrop photos.
+  //
+  // All pan variants baseline the image at scale 1.15 so there's ~7% overflow
+  // on each axis; the ±4% translate stays well inside that headroom, which
+  // prevents any black edges from peeking in. Ken-burns combines a slow zoom
+  // with a seeded diagonal drift so each photo drifts a different direction.
+  //
+  // `progress` is how far through this photo's lifetime we are (0 at its
+  // own trigger km, 1 at the next photo's trigger km, or end of segment).
+  const movementTransform = (progress: number, index: number): string => {
+    const p = Math.max(0, Math.min(1, progress));
+    switch (photoMovement) {
+      case "none":
+        return "none";
+      case "zoom-in":
+        return `scale(${1.0 + 0.2 * p})`;
+      case "zoom-out":
+        return `scale(${1.2 - 0.2 * p})`;
+      case "pan-left":
+        return `scale(1.15) translate(${-4 + 8 * p}%, 0%)`;
+      case "pan-right":
+        return `scale(1.15) translate(${4 - 8 * p}%, 0%)`;
+      case "pan-up":
+        return `scale(1.15) translate(0%, ${-4 + 8 * p}%)`;
+      case "pan-down":
+        return `scale(1.15) translate(0%, ${4 - 8 * p}%)`;
+      case "ken-burns": {
+        // Seeded-per-photo angle so each photo drifts its own direction
+        const rng = seededRandom(photoSeed + index * 37 + 1);
+        const angle = rng() * Math.PI * 2;
+        const tx = Math.cos(angle) * 3.5 * p;
+        const ty = Math.sin(angle) * 3.5 * p;
+        const scale = 1.1 + 0.12 * p;
+        return `scale(${scale}) translate(${tx}%, ${ty}%)`;
+      }
+      default:
+        return "none";
+    }
+  };
+
+  // Movement progress for backdrop photo i — starts at its trigger km, ends
+  // at the next photo's trigger km (or end of segment).
+  const backdropProgressFor = (index: number): number => {
+    const me = backdropPhotos[index];
+    if (!me) return 0;
+    const next = backdropPhotos[index + 1];
+    const endKm = next ? next.km : segmentLengthKm;
+    const lifetime = Math.max(1e-6, endKm - me.km);
+    return (currentKmForBackdrop - me.km) / lifetime;
+  };
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
-      {/* Map tiles — start provider */}
-      <TileMapBackground
-        viewport={viewport}
-        style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
-      />
+      {/* Backdrop photo layer — full-screen photos behind the map. Each photo
+          crossfades into the next as the runner crosses its trigger km. The
+          map above uses mixBlendMode to blend into this layer. */}
+      {isBackdrop && backdropPhotos.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            opacity: photoBackdropOpacity / 100,
+          }}
+        >
+          {(() => {
+            // Render the "from" and (if transitioning) the "to" photo with
+            // transition-specific styling. Movement lives on the inner <Img>
+            // so it composes cleanly with the wrapper's transition transform.
+            const renderLayer = (
+              role: "from" | "to",
+              idx: number,
+            ) => {
+              const photo = backdropPhotos[idx];
+              if (!photo) return null;
+              const style = getTransitionStyle(
+                photoTransition,
+                role,
+                transitionProgress,
+              );
+              if (style.hidden) return null;
+              return (
+                <div
+                  key={`backdrop-${role}-${idx}`}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    opacity: style.opacity,
+                    transform: style.transform,
+                    clipPath: style.clipPath,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Img
+                    src={staticFile(
+                      photosFolder
+                        ? `${photosFolder}/${photo.filename}`
+                        : photo.filename,
+                    )}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      transform: movementTransform(
+                        backdropProgressFor(idx),
+                        idx,
+                      ),
+                      transformOrigin: "center center",
+                      willChange: "transform",
+                    }}
+                  />
+                </div>
+              );
+            };
+            return (
+              <>
+                {transitionFrom >= 0 && renderLayer("from", transitionFrom)}
+                {transitionTo >= 0 && renderLayer("to", transitionTo)}
+              </>
+            );
+          })()}
+        </div>
+      )}
 
-      {/* Map tiles — end provider (crossfade on top) */}
+      {/* Dip-to-black overlay — covers the whole screen (above map, route,
+          HUD) so the transition truly dips to black, not just the photo. */}
+      {isBackdrop &&
+        photoTransition === "dip-to-black" &&
+        transitionTo >= 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "black",
+              opacity: Math.max(
+                0,
+                1 - Math.abs(transitionProgress - 0.5) * 2,
+              ),
+              zIndex: 100,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+
+      {/* Map tiles — start provider era (with optional secondary overlay).
+          When in backdrop mode, the outer div uses mix-blend-mode to blend
+          with the backdrop photo below. isolation: isolate still correctly
+          scopes provider2's blend to within this container. */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          isolation: "isolate",
+          mixBlendMode: mapBlendMode,
+        }}
+      >
+        <TileMapBackground
+          viewport={viewport}
+          style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
+        />
+        {hasProvider2 && viewport2 && provider2 !== "none" && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              mixBlendMode: provider2BlendMode,
+            }}
+          >
+            <TileMapBackground
+              viewport={viewport2}
+              style={provider2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Map tiles — end provider era (crossfade on top) */}
       {hasTileTransition && viewportEnd && (() => {
         const startF = (tileTransitionStart / 100) * durationInFrames;
         const endF = (tileTransitionEnd / 100) * durationInFrames;
@@ -688,11 +1066,40 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
           : 0;
         if (endOpacity <= 0) return null;
         return (
-          <TileMapBackground
-            viewport={viewportEnd}
-            style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
-            opacity={endOpacity}
-          />
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              isolation: "isolate",
+              opacity: endOpacity,
+              mixBlendMode: mapBlendMode,
+            }}
+          >
+            <TileMapBackground
+              viewport={viewportEnd}
+              style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
+            />
+            {hasProviderEnd2 && viewportEnd2 && providerEnd2 !== "none" && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  mixBlendMode: providerEnd2BlendMode,
+                }}
+              >
+                <TileMapBackground
+                  viewport={viewportEnd2}
+                  style={providerEnd2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+                />
+              </div>
+            )}
+          </div>
         );
       })()}
 
@@ -750,7 +1157,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
         )}
 
         {/* Route line */}
-        <path ref={pathRef} d={svgPath} fill="none"
+        <path d={svgPath} fill="none"
           stroke={routeColor} strokeWidth={routeWidth}
           strokeLinecap="round" strokeLinejoin="round"
           strokeDasharray={pathLength} strokeDashoffset={dashOffset}
@@ -768,8 +1175,9 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
         )}
       </svg>
 
-      {/* Photos pinned to map */}
-      {photoList.length > 0 && (
+      {/* Photos pinned to map — only for pinned styles; backdrop style
+          renders photos full-screen behind the map instead. */}
+      {!isBackdrop && photoList.length > 0 && (
         <div style={{
           position: "absolute", top: 0, left: 0,
           width: width, height: height,
@@ -822,7 +1230,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = ({
                   overflow: "hidden",
                 }}
               >
-                <img
+                {/* Remotion's <Img> wraps delayRender around the image load,
+                    so every render tab waits for its own decode to finish.
+                    A plain <img> caused frames to occasionally capture the
+                    photo mid-decode, making it flicker through the fade-in. */}
+                <Img
                   src={staticFile(photosFolder ? `${photosFolder}/${photo.filename}` : photo.filename)}
                   style={{
                     width: "100%",

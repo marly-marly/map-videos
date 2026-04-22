@@ -129,6 +129,33 @@ export function extractSegment(
     }
   }
 
+  // Degenerate case: startKm >= endKm. The caller wants a single-point
+  // "segment" where the dot sits at that exact km and no line is drawn.
+  if (endKm <= startKm) {
+    const coord = simplifiedCoords[startIdx];
+    const elev = elevations[startIdx];
+
+    // Accumulated elevation gain from route start up to this point
+    let elevGain = 0;
+    for (let i = 1; i < elevations.length; i++) {
+      if (cumulativeDistances[i] >= startKm) break;
+      const diff = elevations[i] - elevations[i - 1];
+      if (diff > 0) elevGain += diff;
+    }
+
+    return {
+      coords: [coord, coord], // duplicated so downstream array assumptions hold
+      segmentPoints: [],
+      previousRoutePoints: [],
+      segmentDistances: [0, 0],
+      segmentElevations: [elev, elev],
+      segmentLengthKm: 0,
+      segmentStartKm: startKm,
+      peakElevation: elev,
+      segmentStartElevGain: elevGain,
+    };
+  }
+
   const rawSegmentCoords = simplifiedCoords.slice(startIdx, endIdx + 1);
   if (rawSegmentCoords.length < 2) {
     throw new Error(
