@@ -35,12 +35,18 @@ import { lngToTileX, latToTileY, tileXToLng, tileYToLat, TILE_SIZE } from "../li
 // Schema
 // ---------------------------------------------------------------------------
 
-export const indyTrackerSchema = z.object({
+// Props are grouped into nested z.object()s so Remotion Studio renders them
+// as collapsible sections. The React component destructures each group into
+// the same names used previously, so the body doesn't need to change.
+
+const routeGroup = z.object({
   gpxFile: z.string().describe("GPX filename in public/ folder"),
   startKm: z.number().min(0).describe("Start km (0 = route start)"),
   endKm: z.number().min(0).describe("End km (9999 = full route)"),
   durationSeconds: z.number().min(1).max(300).describe("Video duration in seconds"),
-  // Map
+});
+
+const mapGroup = z.object({
   provider: mapProviderEnum.describe("Start tile provider"),
   provider2: mapProviderOptionalEnum.describe("Optional overlay on top of provider ('none' = no overlay)"),
   provider2BlendMode: blendModeEnum.describe("Blend mode for provider2 over provider"),
@@ -50,11 +56,15 @@ export const indyTrackerSchema = z.object({
   tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
   tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
   zoom: z.number().min(10).max(19).describe("Tile zoom (higher = more detail)"),
-  // Camera
+});
+
+const cameraGroup = z.object({
   cameraZoom: z.number().min(10).max(500).describe("Camera closeness to dot (100=default, 200=2x tighter, 50=wider)"),
   cameraTracking: z.enum(["follow", "cinematic"]).describe("follow = smooth tracking, cinematic = pre-calculated smooth path ignoring zigzags"),
   lookAhead: z.number().min(-200).max(200).describe("Camera offset (positive=ahead, negative=behind dot)"),
-  // Route style
+});
+
+const lineGroup = z.object({
   routeColor: z.string().describe("Route line color"),
   routeWidth: z.number().min(1).max(50).describe("Route line width"),
   dotSize: z.number().min(0).max(200).describe("Dot size (0=hidden, 100=default)"),
@@ -63,7 +73,9 @@ export const indyTrackerSchema = z.object({
   routeCasing: z.number().min(0).max(200).describe("Dark outline (0=off, 100=default)"),
   routeShadow: z.number().min(0).max(200).describe("Soft shadow (0=off, 100=default)"),
   smoothRoute: z.number().min(0).max(100).describe("Round corners on route (0=sharp, 50=default, 100=very smooth)"),
-  // Photos pinned to map
+});
+
+const photosGroup = z.object({
   photos: z.string().describe("Comma-separated photo filenames"),
   photosFolder: z.string().describe("Subfolder in public/ for photos"),
   photoPositions: z.string().describe("Comma-separated km values where photos appear (e.g. 2.5,4.0,6.3)"),
@@ -73,7 +85,7 @@ export const indyTrackerSchema = z.object({
   photoReveal: z.enum(["fade", "drop", "instant"]).describe("How photos appear when line reaches them"),
   photoRevealSpeed: z.number().min(10).max(500).describe("Reveal animation speed (100=default, 50=slower, 200=faster)"),
   photoSeed: z.number().min(0).max(9999).describe("Random seed for scattered placement"),
-  // Backdrop photo controls (only used when photoStyle === "backdrop")
+  // Backdrop-only controls
   photoBlendMode: blendModeEnum.describe("How the map blends over the backdrop photo (backdrop style only)"),
   photoBackdropOpacity: z.number().min(0).max(100).describe("Backdrop photo intensity (100=full, 0=hidden)"),
   photoMovement: z
@@ -99,12 +111,23 @@ export const indyTrackerSchema = z.object({
       "zoom",
     ])
     .describe("How backdrop photos hand off to the next one (backdrop style only)"),
-  // HUD
+});
+
+const hudGroup = z.object({
   distanceScale: z.number().min(50).max(200).describe("Scale km counter to match Strava (100=as-is, 112=for route.gpx)"),
   showDistance: z.boolean().describe("Show distance counter"),
   showElevation: z.boolean().describe("Show elevation counter"),
   distanceLabel: z.string().describe("Distance label (empty = ↔)"),
   elevationLabel: z.string().describe("Elevation label (empty = ↑)"),
+});
+
+export const indyTrackerSchema = z.object({
+  route: routeGroup.describe("Which GPX slice and for how long"),
+  map: mapGroup.describe("Tile providers + optional era crossfade"),
+  camera: cameraGroup.describe("How the camera follows the runner"),
+  line: lineGroup.describe("Route line and runner dot styling"),
+  photos: photosGroup.describe("Pinned thumbnails or backdrop photos"),
+  hud: hudGroup.describe("On-screen labels"),
 });
 
 export type IndyTrackerProps = z.infer<typeof indyTrackerSchema>;
@@ -114,7 +137,7 @@ export const calculateIndyTrackerMetadata: Parameters<
   typeof import("remotion").Composition
 >[0]["calculateMetadata"] = ({ props }) => {
   const p = props as IndyTrackerProps;
-  return { durationInFrames: Math.round(p.durationSeconds * 30) };
+  return { durationInFrames: Math.round(p.route.durationSeconds * 30) };
 };
 
 // ---------------------------------------------------------------------------
@@ -307,49 +330,54 @@ function computeCenteredViewport(
 // Component
 // ---------------------------------------------------------------------------
 
-export const IndyTracker: React.FC<IndyTrackerProps> = ({
-  gpxFile,
-  startKm,
-  endKm,
-  provider,
-  provider2,
-  provider2BlendMode,
-  providerEnd,
-  providerEnd2,
-  providerEnd2BlendMode,
-  tileTransitionStart,
-  tileTransitionEnd,
-  zoom,
-  cameraZoom,
-  cameraTracking,
-  lookAhead,
-  routeColor,
-  routeWidth,
-  dotSize,
-  dotPulseSpeed,
-  routeGlow,
-  routeCasing,
-  routeShadow,
-  smoothRoute,
-  photos,
-  photosFolder,
-  photoPositions,
-  photoStyle,
-  photoSize,
-  photoTilt,
-  photoReveal,
-  photoRevealSpeed,
-  photoSeed,
-  photoBlendMode,
-  photoBackdropOpacity,
-  photoMovement,
-  photoTransition,
-  distanceScale,
-  showDistance,
-  showElevation,
-  distanceLabel,
-  elevationLabel,
-}) => {
+export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
+  // Unpack grouped props back into flat locals. Keeping the old names means
+  // the rest of the component body is untouched by the schema refactor.
+  const { gpxFile, startKm, endKm } = props.route;
+  const {
+    provider,
+    provider2,
+    provider2BlendMode,
+    providerEnd,
+    providerEnd2,
+    providerEnd2BlendMode,
+    tileTransitionStart,
+    tileTransitionEnd,
+    zoom,
+  } = props.map;
+  const { cameraZoom, cameraTracking, lookAhead } = props.camera;
+  const {
+    routeColor,
+    routeWidth,
+    dotSize,
+    dotPulseSpeed,
+    routeGlow,
+    routeCasing,
+    routeShadow,
+    smoothRoute,
+  } = props.line;
+  const {
+    photos,
+    photosFolder,
+    photoPositions,
+    photoStyle,
+    photoSize,
+    photoTilt,
+    photoReveal,
+    photoRevealSpeed,
+    photoSeed,
+    photoBlendMode,
+    photoBackdropOpacity,
+    photoMovement,
+    photoTransition,
+  } = props.photos;
+  const {
+    distanceScale,
+    showDistance,
+    showElevation,
+    distanceLabel,
+    elevationLabel,
+  } = props.hud;
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
 

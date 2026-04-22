@@ -27,19 +27,24 @@ import {
   mapProviderEnum,
   mapProviderOptionalEnum,
   blendModeEnum,
-  type MapProvider,
-  type MapProviderOptional,
-  type BlendMode,
 } from "../lib/tile-viewport";
 import { TileMapBackground } from "./TileMapBackground";
 
-export const gpxSegmentSchema = z.object({
+// ---- Prop groups ----------------------------------------------------------
+// Nested z.object() groups render as collapsible sections in Remotion Studio's
+// props panel. The `.describe()` on each group becomes the section tooltip.
+// Keep per-field descriptions so each control still has its own help text.
+
+const routeGroup = z.object({
   gpxFile: z.string().describe("GPX filename in public/ folder"),
   startKm: z.number().min(0).describe("Start km (0 = route start, decimals allowed e.g. 3.45). If startKm === endKm the dot stays frozen at this km."),
   endKm: z.number().min(0).describe("End km (9999 = full route, decimals allowed e.g. 5.8). If startKm === endKm no line draws — dot stays still."),
   durationSeconds: z.number().min(1).max(300).describe("Duration in seconds"),
-  // Map tiles — up to three providers render in sequence:
-  //   providerStart → provider → providerEnd
+});
+
+// Map tiles — up to three providers render in sequence:
+//   providerStart → provider → providerEnd
+const mapGroup = z.object({
   providerStart: mapProviderEnum.describe("Earliest map provider (same as 'provider' = no pre-transition)"),
   providerStart2: mapProviderOptionalEnum.describe("Optional overlay on top of providerStart ('none' = no overlay)"),
   providerStart2BlendMode: blendModeEnum.describe("Blend mode for providerStart2 over providerStart"),
@@ -55,22 +60,25 @@ export const gpxSegmentSchema = z.object({
   tileTransitionEnd: z.number().min(0).max(100).describe("provider→providerEnd crossfade ends at % of duration"),
   zoom: z.number().min(10).max(19).describe("Tile zoom (19=max detail, 14=overview)"),
   zoomReduction: z.number().min(0).max(5).describe("Reduce tile zoom for the zoomed-out provider (0 = same, 2 = 2 levels lower)"),
-  // Fades — color overlays that sit ABOVE tiles but BELOW the route
-  fadeInColor: z.string().describe("Fade in from this color at start (empty = no fade in)"),
-  fadeOutColor: z.string().describe("Fade out to this color at end (empty = no fade out)"),
-  fadeInOutLength: z.number().min(0).max(60).describe("Fade duration in seconds (applies to both in + out; 0 = off)"),
-  // Camera zoom
+});
+
+// Camera framing — zoom ramp, anchor, tracking, and viewport offsets.
+const cameraGroup = z.object({
   cameraStartZoom: z.number().min(1).max(1000).describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
   cameraEndZoom: z.number().min(1).max(1000).describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
   cameraZoomDelay: z.number().min(0).max(100).describe("Delay before zoom starts (% of duration)"),
   cameraZoomEndDelay: z.number().min(0).max(100).describe("Zoom ends at this % of duration (must be > cameraZoomDelay)"),
   cameraAnchorX: z.number().min(0).max(100).describe("Camera zoom pivot X (% from left)"),
   cameraAnchorY: z.number().min(0).max(100).describe("Camera zoom pivot Y (% from top)"),
-  // Viewport
+  cameraAnchorMode: z.enum(["center", "start", "end", "dot"]).describe("Where camera zooms toward (center=default, dot=follows the moving dot)"),
+  cameraTracking: z.enum(["animated", "still"]).describe("animated = zoom + anchor follow per props, still = camera locked at start zoom, no movement"),
   padding: z.number().min(0).max(200).describe("Padding around segment (% — 35 = default)"),
   offsetX: z.number().min(-500).max(500).describe("Viewport shift X (% of view width)"),
   offsetY: z.number().min(-500).max(500).describe("Viewport shift Y (% of view height)"),
-  // Route
+});
+
+// Route line + runner dot styling, plus undraw/previous-trail toggles.
+const lineGroup = z.object({
   routeColor: z.string().describe("Route line color"),
   routeWidth: z.number().min(1).max(50).describe("Route line width"),
   dotSize: z.number().min(0).max(200).describe("Leading dot size (0 = hidden, 100 = default)"),
@@ -79,11 +87,17 @@ export const gpxSegmentSchema = z.object({
   routeCasing: z.number().min(0).max(200).describe("Dark outline around route (0 = off, 100 = default)"),
   routeShadow: z.number().min(0).max(200).describe("Soft shadow under route (0 = off, 50 = subtle, 100 = default)"),
   showPreviousRoute: z.boolean().describe("Show dim trail of previous route"),
-  // Animation
   reverseDrawing: z.boolean().describe("Start fully drawn, undraw over time"),
-  cameraAnchorMode: z.enum(["center", "start", "end", "dot"]).describe("Where camera zooms toward (center=default, dot=follows the moving dot)"),
-  cameraTracking: z.enum(["animated", "still"]).describe("animated = zoom + anchor follow per props, still = camera locked at start zoom, no movement"),
-  // HUD
+});
+
+// Color-wash fades layered above tiles but beneath the route.
+const fadeGroup = z.object({
+  fadeInColor: z.string().describe("Fade in from this color at start (empty = no fade in)"),
+  fadeOutColor: z.string().describe("Fade out to this color at end (empty = no fade out)"),
+  fadeInOutLength: z.number().min(0).max(60).describe("Fade duration in seconds (applies to both in + out; 0 = off)"),
+});
+
+const hudGroup = z.object({
   distanceScale: z.number().min(50).max(200).describe("Scale km counter to match Strava (100=as-is, 112=for route.gpx)"),
   showDistance: z.boolean().describe("Show distance counter"),
   showElevation: z.boolean().describe("Show elevation counter"),
@@ -91,151 +105,69 @@ export const gpxSegmentSchema = z.object({
   elevationLabel: z.string().describe("Elevation label (empty = ↑)"),
 });
 
-export interface GPXSegmentProps {
-  /** GPX filename in public/ folder */
-  gpxFile: string;
-  /** Start km (0 = route start) */
-  startKm: number;
-  /** End km (use a large number like 9999 for full route) */
-  endKm: number;
-  /** Map provider */
-  provider: MapProvider;
-  /** Optional overlay on top of provider (`none` = no overlay) */
-  provider2: MapProviderOptional;
-  /** Blend mode for provider2 over provider */
-  provider2BlendMode: BlendMode;
-  /** Route line color */
-  routeColor: string;
-  /** Route line width */
-  routeWidth: number;
-  /** Leading dot size (0 = hidden, 100 = default) */
-  dotSize: number;
-  /** Dot flash speed (0 = no pulse, 100 = default, 500 = fast) */
-  dotPulseSpeed: number;
-  /** Route glow intensity (0 = off, 100 = default, 200 = intense) */
-  routeGlow: number;
-  /** Dark outline around route (0 = off, 100 = default) */
-  routeCasing: number;
-  /** Soft shadow under route (0 = off, 100 = default) */
-  routeShadow: number;
-  /** Scale km counter to match Strava */
-  distanceScale: number;
-  /** Show distance counter */
-  showDistance: boolean;
-  /** Show elevation counter */
-  showElevation: boolean;
-  /** Distance label (empty = ↔) */
-  distanceLabel: string;
-  /** Elevation label (empty = ↑) */
-  elevationLabel: string;
-  /** Show dim trail of previous route */
-  showPreviousRoute: boolean;
-  /** Start fully drawn, undraw over time */
-  reverseDrawing: boolean;
-  /** Where camera zooms toward */
-  cameraAnchorMode: "center" | "start" | "end" | "dot";
-  /** Camera tracking mode — "still" disables all camera movement */
-  cameraTracking: "animated" | "still";
-  /** Tile zoom level (17 = satellite detail, 14 = overview) */
-  zoom: number;
-  /** Reduce tile zoom for the zoomed-out provider */
-  zoomReduction: number;
-  /** Padding around segment (0.35 = 35%) */
-  padding: number;
-  /** Viewport shift X (fraction, e.g. 0.1 = 10% right) */
-  offsetX: number;
-  /** Viewport shift Y (fraction, e.g. 0.1 = 10% down) */
-  offsetY: number;
-  /** Duration in seconds */
-  durationSeconds: number;
-  /** Earliest map provider (same as `provider` = no pre-transition) */
-  providerStart: MapProvider;
-  /** Optional overlay on top of providerStart (`none` = no overlay) */
-  providerStart2: MapProviderOptional;
-  /** Blend mode for providerStart2 over providerStart */
-  providerStart2BlendMode: BlendMode;
-  /** providerStart→provider crossfade begin (% of duration) */
-  providerStartTransitionStart: number;
-  /** providerStart→provider crossfade end (% of duration) */
-  providerStartTransitionEnd: number;
-  /** Tile provider to transition TO (same as provider = no transition) */
-  providerEnd: MapProvider;
-  /** Optional overlay on top of providerEnd (`none` = no overlay) */
-  providerEnd2: MapProviderOptional;
-  /** Blend mode for providerEnd2 over providerEnd */
-  providerEnd2BlendMode: BlendMode;
-  /** When tile crossfade begins (0-100 % of duration) */
-  tileTransitionStart: number;
-  /** When tile crossfade completes (0-100 % of duration) */
-  tileTransitionEnd: number;
-  /** Fade in from this color (empty = no fade in) */
-  fadeInColor: string;
-  /** Fade out to this color (empty = no fade out) */
-  fadeOutColor: string;
-  /** Fade duration in seconds */
-  fadeInOutLength: number;
-  /** Camera zoom at start (100 = no zoom, 150 = 50% in) */
-  cameraStartZoom: number;
-  /** Camera zoom at end (100 = no zoom, 150 = 50% in) */
-  cameraEndZoom: number;
-  /** Delay before zoom starts (% of duration) */
-  cameraZoomDelay: number;
-  /** Freeze zoom before end (% of duration) */
-  cameraZoomEndDelay: number;
-  /** Camera zoom pivot X (0-100 % from left) */
-  cameraAnchorX: number;
-  /** Camera zoom pivot Y (0-100 % from top) */
-  cameraAnchorY: number;
-}
+export const gpxSegmentSchema = z.object({
+  route: routeGroup.describe("Which GPX slice and for how long"),
+  map: mapGroup.describe("Tile providers + optional era crossfades"),
+  camera: cameraGroup.describe("How the camera frames the scene"),
+  line: lineGroup.describe("Route line and runner dot styling"),
+  fade: fadeGroup.describe("Color fade in/out overlays"),
+  hud: hudGroup.describe("On-screen labels"),
+});
 
-export const GPXSegment: React.FC<GPXSegmentProps> = ({
-  gpxFile,
-  startKm,
-  endKm,
-  provider,
-  provider2,
-  provider2BlendMode,
-  routeColor,
-  routeWidth,
-  dotSize,
-  dotPulseSpeed,
-  routeGlow,
-  routeCasing,
-  routeShadow,
-  distanceScale,
-  showDistance,
-  showElevation,
-  distanceLabel,
-  elevationLabel,
-  showPreviousRoute,
-  reverseDrawing,
-  cameraAnchorMode,
-  cameraTracking,
-  zoom,
-  zoomReduction,
-  padding,
-  offsetX,
-  offsetY,
-  providerStart,
-  providerStart2,
-  providerStart2BlendMode,
-  providerStartTransitionStart,
-  providerStartTransitionEnd,
-  providerEnd,
-  providerEnd2,
-  providerEnd2BlendMode,
-  tileTransitionStart,
-  tileTransitionEnd,
-  fadeInColor,
-  fadeOutColor,
-  fadeInOutLength,
-  cameraStartZoom,
-  cameraEndZoom,
-  cameraZoomDelay,
-  cameraZoomEndDelay,
-  cameraAnchorX,
-  cameraAnchorY,
-}) => {
+export type GPXSegmentProps = z.infer<typeof gpxSegmentSchema>;
+
+export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
+  const { gpxFile, startKm, endKm } = props.route;
+  const {
+    providerStart,
+    providerStart2,
+    providerStart2BlendMode,
+    providerStartTransitionStart,
+    providerStartTransitionEnd,
+    provider,
+    provider2,
+    provider2BlendMode,
+    providerEnd,
+    providerEnd2,
+    providerEnd2BlendMode,
+    tileTransitionStart,
+    tileTransitionEnd,
+    zoom,
+    zoomReduction,
+  } = props.map;
+  const {
+    cameraStartZoom,
+    cameraEndZoom,
+    cameraZoomDelay,
+    cameraZoomEndDelay,
+    cameraAnchorX,
+    cameraAnchorY,
+    cameraAnchorMode,
+    cameraTracking,
+    padding,
+    offsetX,
+    offsetY,
+  } = props.camera;
+  const {
+    routeColor,
+    routeWidth,
+    dotSize,
+    dotPulseSpeed,
+    routeGlow,
+    routeCasing,
+    routeShadow,
+    showPreviousRoute,
+    reverseDrawing,
+  } = props.line;
+  const { fadeInColor, fadeOutColor, fadeInOutLength } = props.fade;
+  const {
+    distanceScale,
+    showDistance,
+    showElevation,
+    distanceLabel,
+    elevationLabel,
+  } = props.hud;
+
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
 
