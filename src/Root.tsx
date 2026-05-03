@@ -765,7 +765,7 @@ export const RemotionRoot: React.FC = () => {
           camera: {
             cameraZoom: 100,
             cameraTracking: "cinematic" as const,
-            lookAhead: 0,
+            lookAhead: -44,
           },
           line: {
             routeColor: "#ff4444",
@@ -780,8 +780,8 @@ export const RemotionRoot: React.FC = () => {
           photos: {
             photos: "DSC09415.jpg,DSC09420.jpg,DSC09421.jpg,DSC09423.jpg",
             photosFolder: "photos-devils-peak",
-            photoPositions: "2,2.5,3.5,6",
-            photoStyle: "on-route" as const,
+            photoPositions: "1,2.3,4,5,6",
+            photoStyle: "backdrop" as const,
             photoSize: 15,
             photoTilt: 5,
             photoReveal: "fade" as const,

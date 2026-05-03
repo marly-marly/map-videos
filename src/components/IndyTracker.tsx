@@ -230,6 +230,31 @@ type TransitionLayerStyle = {
   hidden?: boolean;
 };
 
+// Identity color for each CSS blend mode — i.e. the color that, when placed
+// beneath the map, produces a result indistinguishable from the un-blended map.
+// Used as the "pre-photo" baseline so the map doesn't blend into the dark
+// AbsoluteFill background before the first backdrop photo arrives. HSL-based
+// modes (hue/saturation/color/luminosity) have no clean identity colour — we
+// pick mid-grey, which is a reasonable visual approximation.
+const BLEND_NEUTRAL: Record<string, string> = {
+  normal: "transparent",
+  multiply: "#ffffff",
+  screen: "#000000",
+  overlay: "#808080",
+  darken: "#ffffff",
+  lighten: "#000000",
+  "color-dodge": "#000000",
+  "color-burn": "#ffffff",
+  "hard-light": "#808080",
+  "soft-light": "#808080",
+  difference: "#000000",
+  exclusion: "#000000",
+  hue: "#808080",
+  saturation: "#808080",
+  color: "#808080",
+  luminosity: "#808080",
+};
+
 function getTransitionStyle(
   mode:
     | "crossfade"
@@ -895,6 +920,43 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   const isBackdrop = photoStyle === "backdrop";
   const mapBlendMode = isBackdrop ? photoBlendMode : "normal";
 
+  // Pre-photo blend ramp.
+  //
+  // If the first backdrop photo isn't at km=0, we don't want photoBlendMode
+  // applied to the map from frame 0 — the map would blend with the empty
+  // dark AbsoluteFill background and look wrong. Instead, we ramp the blend
+  // in over `backdropFadeWindow` km leading up to the first photo's km, with
+  // a pure-colour "neutral" layer (the blend mode's identity colour) sitting
+  // beneath the map until the photo crossfades in over it.
+  //
+  // blendActivation: 0 = no blend (neutral fill visible), 1 = full blend
+  // (photo visible). Stays at 1 once we've passed the first photo's km, and
+  // also when there's no first-photo offset to worry about.
+  const firstPhotoKm = backdropPhotos[0]?.km ?? 0;
+  const blendRampStart = Math.max(0, firstPhotoKm - backdropFadeWindow);
+  const blendActivation =
+    !isBackdrop || backdropPhotos.length === 0 || firstPhotoKm <= 0
+      ? 1
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            (currentKmForBackdrop - blendRampStart) /
+              Math.max(1e-6, firstPhotoKm - blendRampStart),
+          ),
+        );
+
+  // We're showing photo[0] in the soft-fade "approach" mode whenever the dot
+  // hasn't yet reached its trigger km. This intentionally starts at frame 0
+  // (not at blendRampStart) so the <Img> mounts and decodes early — keeping
+  // it mounted with opacity = blendActivation (which is 0 before the ramp
+  // begins) avoids the mid-playback stall that delayRender would otherwise
+  // trigger when a fresh <Img> mounts halfway through the segment.
+  const inApproachWindow =
+    isBackdrop &&
+    backdropPhotos.length > 0 &&
+    backdropActiveIndex < 0;
+
   // Cinematic movement for backdrop photos.
   //
   // All pan variants baseline the image at scale 1.15 so there's ~7% overflow
@@ -962,22 +1024,54 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
             opacity: photoBackdropOpacity / 100,
           }}
         >
+          {/* Neutral baseline — the blend mode's identity colour. Sits beneath
+              the photo layers so the map has something benign to blend with
+              before the first photo arrives. Fades to 0 as the first photo
+              fades in (blendActivation: 0 → 1). */}
+          {blendActivation < 1 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                backgroundColor:
+                  BLEND_NEUTRAL[mapBlendMode] || "transparent",
+                opacity: 1 - blendActivation,
+              }}
+            />
+          )}
           {(() => {
             // Render the "from" and (if transitioning) the "to" photo with
             // transition-specific styling. Movement lives on the inner <Img>
             // so it composes cleanly with the wrapper's transition transform.
+            //
+            // The "approach" case (photo[0] before its trigger km) reuses the
+            // same DOM element with a soft-fade style. Crucial: render it
+            // through this same code path with the SAME key as the post-trigger
+            // "from" layer, so React keeps the <Img> mounted across the
+            // boundary instead of unmounting + remounting (which causes a
+            // visible flash as the new <Img> re-fires its delayRender).
             const renderLayer = (
               role: "from" | "to",
               idx: number,
+              isApproach: boolean,
             ) => {
               const photo = backdropPhotos[idx];
               if (!photo) return null;
-              const style = getTransitionStyle(
-                photoTransition,
-                role,
-                transitionProgress,
-              );
-              if (style.hidden) return null;
+              // During the approach window we always use a plain crossfade
+              // regardless of the user's photoTransition (e.g. "cut" would
+              // otherwise hide the layer). Once past the boundary, the user's
+              // chosen transition style takes over with full opacity.
+              const style = isApproach
+                ? { opacity: blendActivation, transform: "none" as string | undefined, clipPath: undefined as string | undefined }
+                : getTransitionStyle(
+                    photoTransition,
+                    role,
+                    transitionProgress,
+                  );
+              if ("hidden" in style && style.hidden) return null;
               return (
                 <div
                   key={`backdrop-${role}-${idx}`}
@@ -1014,10 +1108,14 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
                 </div>
               );
             };
+            // Resolve which photo plays the "from" role. In the approach
+            // window we pin it to photo[0] so the entry fades smoothly into
+            // the regular flow once backdropActiveIndex catches up.
+            const fromIdx = inApproachWindow ? 0 : transitionFrom;
             return (
               <>
-                {transitionFrom >= 0 && renderLayer("from", transitionFrom)}
-                {transitionTo >= 0 && renderLayer("to", transitionTo)}
+                {fromIdx >= 0 && renderLayer("from", fromIdx, inApproachWindow)}
+                {transitionTo >= 0 && renderLayer("to", transitionTo, false)}
               </>
             );
           })()}
