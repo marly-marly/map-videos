@@ -409,50 +409,16 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     const baseTolerance = 0.01;
     const tolerance = baseTolerance / (cameraZoom / 100);
 
-    // Douglas-Peucker simplification on the coordinates
+    // Douglas-Peucker simplification, keeping the indices of the points that
+    // survive so we can carry their baked distances across too.
+    //
+    // Note: this used to run twice. An iterative stack-based pass ran first and
+    // then threw away both its output array and its stack, before the recursion
+    // below did the work that actually feeds `keepSet`. The dead pass was ~35
+    // lines re-walking the whole route on every route/zoom change; removing it
+    // is pure win with no behavioural effect.
     const coords = segment.coords;
-    const simplified: [number, number][] = [coords[0]];
-    const stack: [number, number][] = [[0, coords.length - 1]];
-
-    while (stack.length > 0) {
-      const [start, end] = stack.pop()!;
-      let maxDist = 0;
-      let maxIdx = start;
-
-      // Find point farthest from the line start→end
-      const [sx, sy] = coords[start];
-      const [ex, ey] = coords[end];
-      const dx = ex - sx;
-      const dy = ey - sy;
-      const lenSq = dx * dx + dy * dy;
-
-      for (let i = start + 1; i < end; i++) {
-        const [px, py] = coords[i];
-        let dist: number;
-        if (lenSq === 0) {
-          dist = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
-        } else {
-          const t = Math.max(0, Math.min(1, ((px - sx) * dx + (py - sy) * dy) / lenSq));
-          const projX = sx + t * dx;
-          const projY = sy + t * dy;
-          dist = Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
-        }
-        if (dist > maxDist) {
-          maxDist = dist;
-          maxIdx = i;
-        }
-      }
-
-      if (maxDist > tolerance) {
-        stack.push([start, maxIdx]);
-        stack.push([maxIdx, end]);
-      }
-    }
-
-    // Collect simplified indices and sort
     const keepSet = new Set<number>([0, coords.length - 1]);
-    // Re-run to collect kept indices properly
-    const indices: number[] = [];
     function simplify(start: number, end: number) {
       if (end - start <= 1) return;
       const [sx, sy] = coords[start];
@@ -713,7 +679,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       placements.push({ filename: filenames[i], km, geoPosition, rotation, safeRevealKm });
     }
     return placements;
-  }, [photos, photosFolder, photoPositions, photoStyle, photoSize, photoSeed, segment, cameraZoom]);
+    // photoTilt IS read in this body (it drives `rotation`), so it must be a
+    // dep — without it, changing tilt in Studio silently does nothing until
+    // some other dep happens to change. photosFolder is deliberately absent:
+    // this memo only computes placements, never resolves image paths.
+  }, [photos, photoPositions, photoStyle, photoSize, photoTilt, photoSeed, segment, cameraZoom]);
 
   // Convert photo positions to pixels in current viewport
   const photoPixels = useMemo(() => {

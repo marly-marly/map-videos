@@ -137,6 +137,28 @@ In `src/lib/tile-viewport.ts`:
 Expect small localised differences in *map imagery* between two renders — tile CDNs serve
 different captures over time. That is not a regression. A moved route line or dot is.
 
+### Proving a refactor is pixel-equivalent
+
+Renders here are **not** bit-deterministic, so "the PNGs differ" proves nothing on its own.
+Establish the noise floor first, then compare against it:
+
+1. Render frame N **before** your change → `ref.png`.
+2. Make the change. Render frame N again → `after.png`.
+3. Render frame N a **second** time from the *unchanged* new code → `noise.png`.
+   This is the control, and it is the step people skip.
+4. Diff `ref` vs `after`, and `after` vs `noise`. If the max per-channel delta of the first
+   is no worse than the second, your change is pixel-equivalent within the renderer's own
+   nondeterminism.
+
+`sharp` is a dependency, so a throwaway script can diff raw RGBA buffers. Run it from the
+repo root — `sharp` won't resolve from a scratch directory. Delete the script afterwards.
+
+Interpreting a delta: tile variation is **diffuse**, scattered across map-imagery grid cells
+and absent from empty sky/sea regions, with deltas in the single digits. A geometry
+regression is **concentrated** in a thin curved band with deltas of 100+, because a bright
+route stroke over dark terrain is a near-maximal contrast edge. Observed noise floor on this
+project: max delta 2 (GPXSegment, static camera) to 8 (IndyTracker, moving camera).
+
 ## Known debt — check `docs/ARCHITECTURE.md` before "fixing"
 
 Several things look like bugs but are deliberate open questions, most notably: 13 legacy

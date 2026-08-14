@@ -22,13 +22,25 @@ export interface PixelPoint {
 // Geographic interpolation
 // ---------------------------------------------------------------------------
 
-/** Find [lng, lat] at a given distance along the segment by interpolation. */
+/**
+ * Find [lng, lat] at a given distance along the segment by interpolation.
+ *
+ * Throws on empty input rather than returning `coords[0]`. The original
+ * combined the empty check with the `targetKm <= 0` early return, so an empty
+ * array returned `undefined` while claiming to return `[number, number]` —
+ * which then blew up further downstream at a confusing place. Callers all
+ * guard on a loaded segment, so empty input means a genuine upstream bug and
+ * is better surfaced here.
+ */
 export function findCoordsAtDistance(
   coords: [number, number][],
   distances: number[],
   targetKm: number
 ): [number, number] {
-  if (targetKm <= 0 || coords.length === 0) return coords[0];
+  if (coords.length === 0) {
+    throw new Error("findCoordsAtDistance: coords is empty");
+  }
+  if (targetKm <= 0) return coords[0];
   if (targetKm >= distances[distances.length - 1]) return coords[coords.length - 1];
 
   // Binary search for the interval

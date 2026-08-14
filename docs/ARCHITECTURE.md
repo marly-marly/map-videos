@@ -234,3 +234,27 @@ Deliberately not fixed, in rough priority order:
    `useRouteAnimation` → `route-utils` / `map-style` is the original implementation and pulls
    in the whole `maplibre-gl` dependency. Nothing else imports it, but it is still the target
    of `npm run render`, so it can't be deleted without redirecting that script.
+6. **`elevationGainAtDraw`'s tail interpolation reads oddly.** The partial-step term is
+   written `interpElev - elevs[i-1]`, which algebraically reduces to
+   `t * (elevs[i] - elevs[i-1])`. The result is correct; the expression just looks like a
+   half-finished edit. Left in its original form in both call sites so the refactor stayed
+   provably behaviour-preserving. Safe to simplify, but do it as its own change.
+
+### Duplication deliberately retained
+
+`src/lib/route-geometry.ts`, `centered-viewport.ts`, `seeded-random.ts` and
+`src/hooks/useGpxSegment.ts` hold what IndyTracker, GPXSegment and PhotoSlideshow genuinely
+share. Four things were left duplicated on purpose — don't "finish the job" without reading
+why:
+
+- **`easedDraw` / `drawEnd`.** GPXSegment uses `0.85` plus a `reverseDrawing` inversion;
+  IndyTracker derives it from `holdAtEnd` and has no reverse. Different product features, not
+  accidental divergence. A shared helper would need four parameters to wrap three lines of
+  arithmetic.
+- **The `segmentPoints` memo.** Identical in both, but the body is a single call to the
+  already-shared `coordsToPixels`. There is no logic left to extract.
+- **`dashOffset`.** A one-liner; a lib call would be longer than the code.
+- **The per-provider viewport memos.** GPXSegment fits bounds over the whole segment across
+  up to three provider eras; IndyTracker centres on the moving runner. Superficially similar,
+  fundamentally different. Only `computeCenteredViewport` was extracted, and its header says
+  so explicitly.
