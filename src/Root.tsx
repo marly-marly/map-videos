@@ -74,17 +74,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -98,17 +87,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -122,17 +100,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -146,17 +113,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -170,17 +126,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -194,17 +139,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -218,17 +152,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -242,17 +165,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -266,17 +178,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -290,17 +191,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -314,17 +204,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -338,17 +217,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition
@@ -930,17 +798,6 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           routeColor: "#ff4444",
           routeWidth: 20,
-          dotSize: 100,
-          dotPulseSpeed: 100,
-          routeGlow: 100,
-          routeCasing: 100,
-          mapFileEnd: "",
-          tileTransitionStart: 0,
-          tileTransitionEnd: 0,
-          showDistance: true,
-          showElevation: true,
-          distanceLabel: "",
-          elevationLabel: "",
         }}
       />
       <Composition

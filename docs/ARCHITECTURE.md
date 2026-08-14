@@ -211,22 +211,29 @@ resolves failed tiles rather than rejecting them for exactly this reason (gotcha
 
 Deliberately not fixed, in rough priority order:
 
-1. **13 legacy compositions silently discard 11 props each.** The schema-less entries at
-   `Root.tsx` (`TseungKwanO`, `DevilsPeak`, …) are each handed 13 `defaultProps` —
-   `dotSize`, `routeGlow`, `showDistance`, and so on — but their wrapper components declare
-   and forward only `routeColor` and `routeWidth`. The rest are dropped on the floor at
-   runtime. It's invisible today because those compositions' props collapse to
-   `Record<string, unknown>`, which accepts any key. Fixing it is a *behavioural* decision:
-   either trim the `defaultProps` (preserving today's output) or widen the wrappers (changing
-   what those videos look like). Ask before choosing.
+1. **The PNG-based compositions race their own basemap decode.** `RouteSegmentVideo.tsx`
+   (~line 213, and ~234 for the transition layer) and `FullRouteOverview.tsx` load their
+   basemap with a **plain `<img>`** rather than Remotion's `<Img>`, so frame capture does not
+   wait for the PNG to decode. This is gotcha #1, and it is not theoretical: rendering the
+   same frame of `Backup-Kowloon-BingAerial` three times produces two distinct outputs that
+   differ across **74% of pixels** with a max per-channel delta of **245**. The route line,
+   dot and HUD are stable (they're SVG/DOM); it is the aerial basemap that alternates between
+   a fully-decoded and a partially-decoded state.
+
+   This affects every PNG-based composition — including the numbered
+   `01-…11-*-BingAerial` set, i.e. the canonical export list. The fix is to import `Img` from
+   `remotion` and swap the tags. It is a genuine behaviour change (frames that currently
+   catch a soft decode would become sharp), which is why it is recorded here rather than
+   applied silently — but it is almost certainly what you want.
+
+   Note this also makes before/after pixel comparison meaningless for these compositions
+   until it is fixed: their noise floor is 245, not the 2–8 seen on the tile-based ones.
 2. **24 near-identical wrapper components.** Each `NN-Name-BingAerial` wrapper is ~56 lines
    of pure prop forwarding differing only in a PNG filename, a meta JSON import, and a camera
    effect. They should collapse to one descriptor table plus a factory, with `Root.tsx`
-   rendering the numbered set from a loop. Blocked on decision (1), since the collapse forces
-   the question.
-3. **`FullRouteOverview` uses a raw `<img>`** for its basemap PNG rather than Remotion's
-   `<Img>`, so the render doesn't wait for that decode. Same class of risk as gotcha #1.
-   Fixing it is a real behaviour change on frame 0, so it was left alone.
+   rendering the numbered set from a loop. The `defaultProps` trim that used to block this is
+   done, so the 13 legacy wrappers now reduce cleanly to
+   `(routeColor, routeWidth, mapFile, meta)` — one table row each.
 4. **Unreferenced assets.** `public/full-route-overview.png`,
    `-cartodark.png`, and `-ocean.png` are not used by any component — all variants load
    `full-route-overview-composite.png`.
