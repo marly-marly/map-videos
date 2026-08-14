@@ -8,7 +8,8 @@ Remotion project for rendering animated 4K videos of the **HK Southern Loop 2025
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Data flow, layer stack, the master clock, coordinate spaces, prop conventions, and the current known debt. Read before structural changes. |
 | [docs/RENDERING-GOTCHAS.md](docs/RENDERING-GOTCHAS.md) | Eleven real debugged rendering bugs and the load-bearing fixes. **Read before changing anything that affects what a frame looks like.** |
-| [.claude/skills/map-videos/SKILL.md](.claude/skills/map-videos/SKILL.md) | Condensed working guide, auto-loaded by Claude Code. |
+| [CLAUDE.md](CLAUDE.md) | Orientation + non-negotiables, auto-loaded into context by Claude Code every session. |
+| [.claude/skills/map-videos/SKILL.md](.claude/skills/map-videos/SKILL.md) | Condensed working guide, loaded by Claude Code when the task matches. |
 
 ---
 
