@@ -10,6 +10,7 @@
 import React, { useMemo } from "react";
 import {
   AbsoluteFill,
+  Img,
   useCurrentFrame,
   useVideoConfig,
   staticFile,
@@ -243,7 +244,11 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
       {/* Terrain map background — one composite PNG, optionally desaturated */}
-      <img
+      {/* Remotion's <Img>, not a plain <img>: <Img> holds a delayRender handle
+          until its own decode finishes. A plain <img> lets the renderer race
+          the PNG decode, so the same frame rendered twice could differ across
+          most of the terrain while the route and HUD stayed stable. */}
+      <Img
         src={staticFile("full-route-overview-composite.png")}
         style={{
           position: "absolute",

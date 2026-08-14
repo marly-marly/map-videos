@@ -211,37 +211,20 @@ resolves failed tiles rather than rejecting them for exactly this reason (gotcha
 
 Deliberately not fixed, in rough priority order:
 
-1. **The PNG-based compositions race their own basemap decode.** `RouteSegmentVideo.tsx`
-   (~line 213, and ~234 for the transition layer) and `FullRouteOverview.tsx` load their
-   basemap with a **plain `<img>`** rather than Remotion's `<Img>`, so frame capture does not
-   wait for the PNG to decode. This is gotcha #1, and it is not theoretical: rendering the
-   same frame of `Backup-Kowloon-BingAerial` three times produces two distinct outputs that
-   differ across **74% of pixels** with a max per-channel delta of **245**. The route line,
-   dot and HUD are stable (they're SVG/DOM); it is the aerial basemap that alternates between
-   a fully-decoded and a partially-decoded state.
-
-   This affects every PNG-based composition — including the numbered
-   `01-…11-*-BingAerial` set, i.e. the canonical export list. The fix is to import `Img` from
-   `remotion` and swap the tags. It is a genuine behaviour change (frames that currently
-   catch a soft decode would become sharp), which is why it is recorded here rather than
-   applied silently — but it is almost certainly what you want.
-
-   Note this also makes before/after pixel comparison meaningless for these compositions
-   until it is fixed: their noise floor is 245, not the 2–8 seen on the tile-based ones.
-2. **24 near-identical wrapper components.** Each `NN-Name-BingAerial` wrapper is ~56 lines
+1. **24 near-identical wrapper components.** Each `NN-Name-BingAerial` wrapper is ~56 lines
    of pure prop forwarding differing only in a PNG filename, a meta JSON import, and a camera
    effect. They should collapse to one descriptor table plus a factory, with `Root.tsx`
    rendering the numbered set from a loop. The `defaultProps` trim that used to block this is
    done, so the 13 legacy wrappers now reduce cleanly to
    `(routeColor, routeWidth, mapFile, meta)` — one table row each.
-4. **Unreferenced assets.** `public/full-route-overview.png`,
+2. **Unreferenced assets.** `public/full-route-overview.png`,
    `-cartodark.png`, and `-ocean.png` are not used by any component — all variants load
    `full-route-overview-composite.png`.
-5. **The maplibre-gl path is vestigial.** `MapRouteVideo` → `MapRenderer` →
+3. **The maplibre-gl path is vestigial.** `MapRouteVideo` → `MapRenderer` →
    `useRouteAnimation` → `route-utils` / `map-style` is the original implementation and pulls
    in the whole `maplibre-gl` dependency. Nothing else imports it, but it is still the target
    of `npm run render`, so it can't be deleted without redirecting that script.
-6. **`elevationGainAtDraw`'s tail interpolation reads oddly.** The partial-step term is
+4. **`elevationGainAtDraw`'s tail interpolation reads oddly.** The partial-step term is
    written `interpElev - elevs[i-1]`, which algebraically reduces to
    `t * (elevs[i] - elevs[i-1])`. The result is correct; the expression just looks like a
    half-finished edit. Left in its original form in both call sites so the refactor stayed

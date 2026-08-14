@@ -18,6 +18,20 @@ partially-decoded (or blank) bitmap.
 **Fix:** import `Img` from `remotion` and use `<Img>` (capital I). It wraps a per-tab
 `delayRender` around its own load, so every render worker waits for its own decode.
 
+**This was measured, not theorised.** `RouteSegmentVideo` and `FullRouteOverview` used plain
+`<img>` for their basemap PNGs. Rendering the *same* frame twice from *unchanged* code:
+
+| composition | plain `<img>` | with `<Img>` |
+|---|---|---|
+| `Backup-Kowloon-BingAerial` f300 | max delta **245**, 73.98% of pixels differ | max delta **3**, 0.06% |
+| `TseungKwanO` f300 | max delta **183**, 0.24% | max delta **2**, 0.04% |
+
+The route line, dot and HUD were stable throughout — they're SVG/DOM. It was the aerial
+basemap alternating between a full and a partial decode. Two lessons: the artifact is
+nondeterministic, so it appears on *some* frames of a long render and not others; and it
+inflated these compositions' pixel-comparison noise floor to 245, making any before/after
+verification on them meaningless until fixed.
+
 ---
 
 ## 2. A `<Img>` that first mounts mid-timeline stalls the render
@@ -36,6 +50,14 @@ pause is invisible, and the image is ready by the time it needs to be seen.
 In `IndyTracker.tsx` this is why `inApproachWindow` deliberately has **no** lower bound on
 `blendActivation` — photo[0] is mounted from frame 0 even when it is fully transparent. A
 comment marks this; do not "optimise" it away.
+
+`RouteSegmentVideo.tsx` has the same pattern for its tile-crossfade layer. That layer used to
+be conditionally rendered behind an `if (endOpacity <= 0) return null` guard, which was
+harmless while it was a plain `<img>` — but the moment it became an `<Img>` (see #1) that
+guard would have made it mount mid-timeline and stall the render exactly at the crossfade.
+It is now mounted from frame 0 at opacity 0. **Fixing #1 and #2 together is not optional:**
+converting a conditionally-rendered `<img>` to `<Img>` without also hoisting its mount just
+trades one artifact for a worse one.
 
 ---
 

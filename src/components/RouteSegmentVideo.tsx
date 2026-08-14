@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import {
   AbsoluteFill,
+  Img,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
@@ -209,8 +210,13 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
           transformOrigin: `${cameraAnchor[0] * 100}% ${cameraAnchor[1] * 100}%`,
         }}
       >
-      {/* Satellite map background — start provider */}
-      <img
+      {/* Satellite map background — start provider.
+          Remotion's <Img> (capital I), not a plain <img>: <Img> holds a
+          delayRender handle until its own decode finishes. With a plain <img>
+          the renderer races the PNG decode, and the same frame rendered twice
+          could differ across ~74% of pixels (max channel delta 245) as the
+          basemap alternated between a full and a partial decode. */}
+      <Img
         src={staticFile(mapFile)}
         style={{
           position: "absolute",
@@ -222,16 +228,21 @@ export const RouteSegmentVideo: React.FC<RouteSegmentVideoProps> = ({
         }}
       />
 
-      {/* Satellite map background — end provider (crossfade on top) */}
+      {/* Satellite map background — end provider (crossfade on top).
+          Mounted from frame 0 at opacity 0 rather than conditionally rendered
+          once the crossfade starts. An <Img> that first mounts mid-timeline
+          fires its delayRender there and stalls the render at that frame;
+          mounting early moves the decode pause to frame 0 where it is
+          invisible. Do not reinstate an `endOpacity <= 0 -> return null`
+          early return here. */}
       {mapFileEnd && (() => {
         const startF = (tileTransitionStart / 100) * durationInFrames;
         const endF = (tileTransitionEnd / 100) * durationInFrames;
         const endOpacity = endF > startF
           ? interpolate(frame, [startF, endF], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
           : 0;
-        if (endOpacity <= 0) return null;
         return (
-          <img
+          <Img
             src={staticFile(mapFileEnd)}
             style={{
               position: "absolute",
