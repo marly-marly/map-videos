@@ -2,6 +2,14 @@
 
 Remotion project for rendering animated 4K videos of the **HK Southern Loop 2025** trail run — moving-map shots, route reveals, photo slideshows, and full-route flyovers. Each composition is a React component in `src/components/` registered in `src/Root.tsx`.
 
+### Further reading
+
+| doc | what's in it |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Data flow, layer stack, the master clock, coordinate spaces, prop conventions, and the current known debt. Read before structural changes. |
+| [docs/RENDERING-GOTCHAS.md](docs/RENDERING-GOTCHAS.md) | Eleven real debugged rendering bugs and the load-bearing fixes. **Read before changing anything that affects what a frame looks like.** |
+| [.claude/skills/map-videos/SKILL.md](.claude/skills/map-videos/SKILL.md) | Condensed working guide, auto-loaded by Claude Code. |
+
 ---
 
 ## Quick start
@@ -52,11 +60,11 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 │   └── render-static-map.ts      One-off static map renderer
 ├── src/
 │   ├── Root.tsx                  Composition registry — every video is listed here
-│   ├── components/               One file per composition (~38 of them)
+│   ├── components/               One file per composition
 │   │   ├── IndyTracker.tsx       Cinematic moving-camera tracker (grouped schema)
 │   │   ├── GPXSegment.tsx        Generic configurable segment (grouped schema)
 │   │   ├── PhotoSlideshow.tsx    Photo deck with Ken Burns / mosaic / film-strip styles
-│   │   ├── FullRouteOverview*.tsx Static full-route flyovers
+│   │   ├── FullRouteOverview.tsx All 5 overview variants, flag-driven
 │   │   ├── TileMapBackground.tsx Tile grid renderer with retry + delayRender
 │   │   └── (per-segment named wrappers: DevilsPeak, SiuMaShan, …)
 │   └── lib/
@@ -74,7 +82,7 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 
 - **`IndyTracker`** — Cinematic camera that follows the runner along the route. Schema is grouped into `route` / `map` / `camera` / `line` / `photos` / `hud` sections in the props panel. Supports backdrop photos with blend modes, photo movement (ken-burns, pan, zoom), photo transitions (crossfade, wipe, dip-to-black, …), and dual-era tile crossfades.
 - **`GPXSegment`** — Generic single-segment composition; same grouped-schema pattern (`route` / `map` / `camera` / `line` / `fade` / `hud`). Three-era tile pipeline: `providerStart` → `provider` → `providerEnd` with crossfade windows expressed as `% of duration`.
-- **`FullRouteOverview` / `-BW` / `-Peaks` / `-NoHUD`** — Static fly-over of the entire loop with logo reveal.
+- **`FullRouteOverview` / `-BW` / `-Peaks` / `-NoHUD` / `-BW-NoHUD`** — Static fly-over of the entire loop with logo reveal. All five are **one component** driven by three booleans (`showHud`, `showPeaks`, `grayscale`); `-BW` is a CSS filter over the same basemap PNG, not a separate asset.
 - **`PhotoSlideshow`** — 4K photo deck. Styles: `ken-burns`, `mosaic`, `photo-prints`, `film-strip`, `parallax`, `editorial-grid`, `slide-push`, `zoom-through-black`. `calculateMetadata` adapts `durationInFrames` to the chosen photo count.
 - **`01-TseungKwanO-BingAerial` … `11-SaiKung-BingAerial`** — Pre-configured numbered segments with `BingAerial` map. Use these as the canonical export list for the final video.
 
@@ -115,15 +123,26 @@ Failed tiles **resolve, never reject**, so one bad CDN response can't stall a fr
 
 Use Remotion's `<Img>` (capital I) for images that must be fully loaded before a frame is captured — particularly inside fade-in animations, where a plain `<img>` can be sampled mid-decode and produce a one-frame flash. `<Img>` wraps a per-tab `delayRender` for you.
 
-### Pre-existing TypeScript errors
+### TypeScript is clean — keep it that way
 
-`npx tsc --noEmit` reports a small set of long-standing errors unrelated to current work:
+`npx tsc --noEmit` reports **zero errors**. It used to report 27; they were all type-level
+and were fixed with no behavioural change. The three root causes are worth knowing, because
+each is easy to reintroduce:
 
-- `provider*2 !== "none"` comparison errors in `IndyTracker.tsx` and `GPXSegment.tsx` — `mapProviderOptionalEnum` resolves to `MapProvider` (no `"none"`) in the inferred prop type. Doesn't affect runtime.
-- `FC<…Props>` → `LooseComponentType<Record<string, unknown>>` mismatches on per-segment wrapper components in `Root.tsx` — silenced with `@ts-expect-error` directives.
-- `CalculateMetadataFunction<Record<string, unknown>>` mismatches on `IndyTracker` and `PhotoSlideshow` compositions — Remotion generics quirk.
+- **`export interface FooProps` breaks `<Composition>`.** Remotion constrains its inferred
+  `Props` to `Record<string, unknown>`, and TypeScript grants an implicit index signature to
+  type *aliases* but never to *interfaces*. Use `export type FooProps = { … }`. This was the
+  cause of 11 errors and of every `@ts-expect-error` in `Root.tsx`.
+- **Don't type `calculateMetadata` by scraping the generic signature.** Applying
+  `Parameters<typeof Composition>[0][…]` erases the type parameters to their constraints, so
+  props collapse to `Record<string, unknown>`. Use Remotion's exported
+  `CalculateMetadataFunction<YourProps>`.
+- **A `const` alias narrows its operand.** `const has2 = provider2 !== "none"` makes
+  TypeScript treat `has2` as a type guard, so a later `provider2 !== "none"` in the same
+  expression is provably dead and errors as an impossible comparison.
 
-These are tolerated. Fix them if you want, but they don't break Studio or rendering.
+If you find yourself reaching for `@ts-expect-error` on a `<Composition>`, you almost
+certainly want the `interface` → `type` change plus a `schema={…}` prop instead.
 
 ### Render flags
 
@@ -132,7 +151,7 @@ These are tolerated. Fix them if you want, but they don't break Studio or render
 
 ### Output directory
 
-`out/` holds rendered MP4s. **It is not in `.gitignore`** (only `node_modules/`, `dist/`, `.cache/` are) — commit deliberately and clean up large files before pushing.
+`out/` holds rendered MP4s and **is gitignored** — they're build artifacts at hundreds of MB each, so deliver them out-of-band rather than committing them.
 
 ### Segment coordinates — do not edit casually
 
@@ -153,5 +172,9 @@ The km boundaries on the numbered segments (`01-TseungKwanO-BingAerial` through 
 | `Missing script: "start"` | Use `npm run studio` instead of `npm start`. |
 | Black squares in the rendered map | Tile CDN flaked. The frame waits up to 120 s with retries; if it consistently times out, the provider is genuinely down — switch to a backup provider or lower the zoom. |
 | One-frame flash on photo fade-in | Make sure the photo uses Remotion's `<Img>` (capital I), not a plain `<img>`. |
-| Black edges when camera pans on a backdrop photo | The pan math in `IndyTracker` keeps the inner image at `scale(1.15)` baseline (7.5% overflow per axis) — don't reduce it below `1.08` or the math no longer covers the ±4% translate envelope. |
+| Black edges when the camera pans on a backdrop photo | The pan scale baseline and the translate distance must scale together. For `scale(S)` with a `±T%` translate you need `T <= 50*(S-1)`; the pan modes use `S = 1 + 0.15*mag` and `T = 4*mag`, which holds at every `mag`. If you changed one coefficient, change the other. |
+| Render visibly stalls right when a photo appears | An `<Img>` that first mounts mid-timeline fires a fresh `delayRender`. Mount it at frame 0 with `opacity: 0` instead of conditionally rendering it into existence. |
+| Photo flashes at a transition boundary | Two render branches are using different React keys, so the element unmounts and remounts. Route both through one code path with the same key. |
+| Route renders fully solid on frame 0 | Path length measured as `0` on first render makes `stroke-dasharray="0"`, which SVG treats as "no dashing". Compute cumulative length synchronously in JS rather than via `getTotalLength()` in an effect. |
+| Ken Burns / pan freezes before the video ends | Expected if you're looking at the line: `holdAtEnd` freezes the master clock. Photo movement is paced separately in frame time and should keep going — if it doesn't, check `backdropProgressFor`. |
 | Studio freezes on a heavy composition | Drop `--concurrency` (it's already 1 for renders) and lower the camera zoom on the in-Studio preview — Studio renders at full 4K too. |
