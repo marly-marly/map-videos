@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/devils-peak-bing-aerial-meta.json";
 
-export interface DevilsPeakBingAerialProps {
+export type DevilsPeakBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

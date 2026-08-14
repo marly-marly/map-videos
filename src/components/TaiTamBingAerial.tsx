@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/tai-tam-bing-aerial-meta.json";
 
-export interface TaiTamBingAerialProps {
+export type TaiTamBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

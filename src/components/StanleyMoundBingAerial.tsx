@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/stanley-mound-bing-aerial-meta.json";
 
-export interface StanleyMoundBingAerialProps {
+export type StanleyMoundBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

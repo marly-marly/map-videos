@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/central-bing-aerial-meta.json";
 
-export interface CentralBingAerialProps {
+export type CentralBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

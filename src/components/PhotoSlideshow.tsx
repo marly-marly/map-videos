@@ -8,7 +8,9 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import type { CalculateMetadataFunction } from "remotion";
 import { z } from "zod";
+import { seededRandom } from "../lib/seeded-random";
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -74,27 +76,25 @@ export const photoSlideshowSchema = z.object({
 
 export type PhotoSlideshowProps = z.infer<typeof photoSlideshowSchema>;
 
-/** Dynamically set composition duration from the durationSeconds prop */
-export const calculatePhotoSlideshowMetadata: Parameters<
-  typeof import("remotion").Composition
->[0]["calculateMetadata"] = ({ props }) => {
-  const p = props as PhotoSlideshowProps;
-  return {
-    durationInFrames: Math.round(p.durationSeconds * 30),
-  };
-};
+/**
+ * Dynamically set composition duration from the durationSeconds prop.
+ *
+ * Annotated with Remotion's own `CalculateMetadataFunction` at the concrete
+ * props type. Do NOT go back to scraping the signature via
+ * `Parameters<typeof Composition>[0]["calculateMetadata"]` — applying
+ * `Parameters<>` to a generic function erases its type parameters to their
+ * constraints, so the props collapse to `Record<string, unknown>` and the
+ * return type then fails to match at the call site in Root.tsx.
+ */
+export const calculatePhotoSlideshowMetadata: CalculateMetadataFunction<
+  PhotoSlideshowProps
+> = ({ props }) => ({
+  durationInFrames: Math.round(props.durationSeconds * 30),
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function seededRandom(seed: number): () => number {
-  let s = seed || 1;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
 
 function parsePhotos(csv: string): string[] {
   return csv

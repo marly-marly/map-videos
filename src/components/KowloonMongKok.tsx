@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import kowloonMongKokMeta from "../data/kowloon-mong-kok-meta.json";
 
-export interface KowloonMongKokProps {
+export type KowloonMongKokProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

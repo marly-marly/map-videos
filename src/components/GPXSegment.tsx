@@ -4,23 +4,15 @@
  * Drop a .gpx file into public/, set the filename in props, configure
  * start/end km, style, and HUD options in Remotion Studio's sidebar.
  */
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo } from "react";
 import {
   AbsoluteFill,
-  continueRender,
-  delayRender,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
-  staticFile,
 } from "remotion";
 import { z } from "zod";
-import { parseGPX } from "../lib/gpx-browser-parser";
-import {
-  processRoute,
-  extractSegment,
-  getPreviousRouteCoords,
-} from "../lib/route-processor";
+import { getPreviousRouteCoords } from "../lib/route-processor";
 import {
   computeViewport,
   coordsToPixels,
@@ -28,6 +20,15 @@ import {
   mapProviderOptionalEnum,
   blendModeEnum,
 } from "../lib/tile-viewport";
+import {
+  computePathMetrics,
+  elevationGainAtDraw,
+  glowPulseOpacity,
+  pointAtDrawFraction,
+  polylineToPath,
+  scaledDistanceAtDraw,
+} from "../lib/route-geometry";
+import { useGpxSegment } from "../hooks/useGpxSegment";
 import { TileMapBackground } from "./TileMapBackground";
 
 // ---- Prop groups ----------------------------------------------------------
@@ -171,49 +172,10 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
 
-  // Load and parse GPX file — delayRender ensures no frames are captured until loaded
-  const [gpxData, setGpxData] = useState<string | null>(null);
-  const [gpxHandle] = useState(() => delayRender("Loading GPX file", { timeoutInMilliseconds: 30000 }));
-
-  useEffect(() => {
-    fetch(staticFile(gpxFile))
-      .then((r) => r.text())
-      .then((text) => {
-        setGpxData(text);
-        continueRender(gpxHandle);
-      })
-      .catch(() => {
-        console.error(`Failed to load GPX file: ${gpxFile}`);
-        continueRender(gpxHandle);
-      });
-  }, [gpxFile, gpxHandle]);
-
-  // Process route
-  const route = useMemo(() => {
-    if (!gpxData) return null;
-    try {
-      const parsed = parseGPX(gpxData);
-      return processRoute(parsed.points);
-    } catch (e) {
-      console.error("GPX processing error:", e);
-      return null;
-    }
-  }, [gpxData]);
-
-  // Extract segment
-  const actualEndKm = route
-    ? Math.min(endKm, route.totalDistanceKm)
-    : endKm;
-
-  const segment = useMemo(() => {
-    if (!route) return null;
-    try {
-      return extractSegment(route, startKm, actualEndKm);
-    } catch (e) {
-      console.error("Segment extraction error:", e);
-      return null;
-    }
-  }, [route, startKm, actualEndKm]);
+  // Load the GPX file, process the route, and slice out startKm→endKm.
+  // The hook owns the delayRender handshake so no frame is captured until the
+  // fetch resolves.
+  const { gpxData, route, segment } = useGpxSegment(gpxFile, startKm, endKm);
 
   const minCameraScale = Math.min(cameraStartZoom, cameraEndZoom) / 100;
 
@@ -330,43 +292,16 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   }, [route, viewport, showPreviousRoute, startKm]);
 
   // SVG path
-  const svgPath = useMemo(() => {
-    if (segmentPoints.length < 2) return "";
-    let d = `M ${segmentPoints[0].x} ${segmentPoints[0].y}`;
-    for (let i = 1; i < segmentPoints.length; i++) {
-      d += ` L ${segmentPoints[i].x} ${segmentPoints[i].y}`;
-    }
-    return d;
-  }, [segmentPoints]);
+  const svgPath = useMemo(() => polylineToPath(segmentPoints), [segmentPoints]);
 
-  const prevPath = useMemo(() => {
-    if (previousPoints.length < 2) return "";
-    let d = `M ${previousPoints[0].x} ${previousPoints[0].y}`;
-    for (let i = 1; i < previousPoints.length; i++) {
-      d += ` L ${previousPoints[i].x} ${previousPoints[i].y}`;
-    }
-    return d;
-  }, [previousPoints]);
+  const prevPath = useMemo(() => polylineToPath(previousPoints), [previousPoints]);
 
-  // Path measurement — computed synchronously from segmentPoints.
-  // Previously used SVGPathElement.getTotalLength()/getPointAtLength() via a
-  // useEffect, which caused the dot to lag one frame behind path changes and
-  // visibly detach from the line during camera panning. Computing lengths in
-  // JS keeps the dot and the drawn line in perfect sync every frame.
-  const pathMetrics = useMemo(() => {
-    if (segmentPoints.length < 2) {
-      return { totalLength: 0, cumLengths: [0] };
-    }
-    const cumLengths: number[] = [0];
-    let total = 0;
-    for (let i = 1; i < segmentPoints.length; i++) {
-      const dx = segmentPoints[i].x - segmentPoints[i - 1].x;
-      const dy = segmentPoints[i].y - segmentPoints[i - 1].y;
-      total += Math.hypot(dx, dy);
-      cumLengths.push(total);
-    }
-    return { totalLength: total, cumLengths };
-  }, [segmentPoints]);
+  // Path measurement — computed synchronously from segmentPoints so the dot
+  // never lags a frame behind the line (see computePathMetrics for why).
+  const pathMetrics = useMemo(
+    () => computePathMetrics(segmentPoints),
+    [segmentPoints]
+  );
 
   const pathLength = pathMetrics.totalLength;
 
@@ -386,69 +321,38 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   const isPointOnly = segmentLengthKm === 0;
 
   // Runner dot position — binary-search the polyline to the drawn distance.
-  // Falls back to the single point location for degenerate segments.
+  // A zero-length segment has no line to walk, so the dot is pinned to the one
+  // point instead; pointAtDrawFraction would otherwise divide by a zero total.
   const currentPoint = useMemo(() => {
     if (isPointOnly && segmentPoints.length > 0) {
       return { x: segmentPoints[0].x, y: segmentPoints[0].y };
     }
-    if (segmentPoints.length === 0) return { x: 0, y: 0 };
-    if (segmentPoints.length === 1) return segmentPoints[0];
-    const target = pathMetrics.totalLength * easedDraw;
-    const cum = pathMetrics.cumLengths;
-    let lo = 0;
-    let hi = cum.length - 1;
-    while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
-      if (cum[mid] <= target) lo = mid;
-      else hi = mid;
-    }
-    const segLen = cum[hi] - cum[lo];
-    const t = segLen > 0 ? (target - cum[lo]) / segLen : 0;
-    return {
-      x: segmentPoints[lo].x + t * (segmentPoints[hi].x - segmentPoints[lo].x),
-      y: segmentPoints[lo].y + t * (segmentPoints[hi].y - segmentPoints[lo].y),
-    };
+    return pointAtDrawFraction(segmentPoints, pathMetrics, easedDraw);
   }, [easedDraw, pathMetrics, isPointOnly, segmentPoints]);
+
   // Read distance from actual segmentDistances (which skips ferry gaps)
   const currentDistanceKm = useMemo(() => {
     if (!segment) return startKm;
-    const dists = segment.segmentDistances;
-    const targetIdx = Math.min(
-      dists.length - 1,
-      Math.round(easedDraw * (dists.length - 1))
+    return scaledDistanceAtDraw(
+      segment.segmentDistances,
+      startKm,
+      easedDraw,
+      distanceScale
     );
-    return (startKm + dists[targetIdx]) * (distanceScale / 100);
   }, [segment, startKm, easedDraw, distanceScale]);
 
   // Elevation gain
   const cumulativeElevGain = useMemo(() => {
     if (!segment) return 0;
-    const dists = segment.segmentDistances;
-    const elevs = segment.segmentElevations;
-    const targetDist = segmentLengthKm * easedDraw;
-
-    let gain = 0;
-    for (let i = 1; i < elevs.length; i++) {
-      if (dists[i] > targetDist) {
-        if (dists[i - 1] < targetDist) {
-          const t =
-            (targetDist - dists[i - 1]) / (dists[i] - dists[i - 1]);
-          const interpElev = elevs[i - 1] + t * (elevs[i] - elevs[i - 1]);
-          const diff = interpElev - elevs[i - 1];
-          if (diff > 0) gain += diff;
-        }
-        break;
-      }
-      const diff = elevs[i] - elevs[i - 1];
-      if (diff > 0) gain += diff;
-    }
-    return (segment.segmentStartElevGain || 0) + gain;
+    return elevationGainAtDraw(
+      segment.segmentDistances,
+      segment.segmentElevations,
+      segmentLengthKm * easedDraw,
+      segment.segmentStartElevGain
+    );
   }, [easedDraw, segment, segmentLengthKm]);
 
-  const pulseRate = dotPulseSpeed / 100; // 0 = static, 1 = default 1Hz, 5 = fast
-  const glowPulse = pulseRate > 0
-    ? 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2 * pulseRate)
-    : 0.7;
+  const glowPulse = glowPulseOpacity(dotPulseSpeed, frame, fps);
 
   // Dynamic camera anchor based on mode (must be before early return).
   // In "still" mode, the "dot" anchor (which moves with the dot = bounces) is
@@ -579,7 +483,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
             viewport={viewportStart}
             style={providerStart === "ocean-composite" ? "ocean-composite" : "satellite"}
           />
-          {hasProviderStart2 && viewportStart2 && providerStart2 !== "none" && (
+          {hasProviderStart2 && viewportStart2 && (
             <div
               style={{
                 position: "absolute",
@@ -615,7 +519,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
           viewport={viewport}
           style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
         />
-        {hasProvider2 && viewport2 && provider2 !== "none" && (
+        {hasProvider2 && viewport2 && (
           <div
             style={{
               position: "absolute",
@@ -657,7 +561,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               viewport={viewportEnd}
               style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
             />
-            {hasProviderEnd2 && viewportEnd2 && providerEnd2 !== "none" && (
+            {hasProviderEnd2 && viewportEnd2 && (
               <div
                 style={{
                   position: "absolute",

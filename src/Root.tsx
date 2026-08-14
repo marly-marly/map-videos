@@ -28,9 +28,10 @@ import { BeaconHillBingAerial } from "./components/BeaconHillBingAerial";
 import { SaiKungBingAerial } from "./components/SaiKungBingAerial";
 import { PhotosDevilsPeak } from "./components/PhotosDevilsPeak";
 import { PhotosDevilsPeak02 } from "./components/PhotosDevilsPeak02";
-import { FullRouteOverview } from "./components/FullRouteOverview";
-import { FullRouteOverviewBW } from "./components/FullRouteOverviewBW";
-import { FullRouteOverviewPeaks } from "./components/FullRouteOverviewPeaks";
+import {
+  FullRouteOverview,
+  fullRouteOverviewSchema,
+} from "./components/FullRouteOverview";
 import { GPXSegment, gpxSegmentSchema } from "./components/GPXSegment";
 import {
   IndyTracker,
@@ -614,55 +615,81 @@ export const RemotionRoot: React.FC = () => {
           elevationLabel: "",
         }}
       />
+      {/* The five overview variants are one component driven by three flags.
+          FullRouteOverviewBW / -Peaks used to be separate near-identical files. */}
       <Composition
         id="FullRouteOverview"
-        // @ts-expect-error Remotion Composition generics
         component={FullRouteOverview}
+        schema={fullRouteOverviewSchema}
         durationInFrames={FPS * 30}
         fps={FPS}
         width={3840}
         height={2160}
+        defaultProps={{
+          showHud: true,
+          showPeaks: false,
+          grayscale: false,
+          routeColor: "#ff4444",
+        }}
       />
       <Composition
         id="FullRouteOverview-BW"
-        // @ts-expect-error Remotion Composition generics
-        component={FullRouteOverviewBW}
+        component={FullRouteOverview}
+        schema={fullRouteOverviewSchema}
         durationInFrames={FPS * 30}
         fps={FPS}
         width={3840}
         height={2160}
+        defaultProps={{
+          showHud: true,
+          showPeaks: false,
+          grayscale: true,
+          routeColor: "#ff4444",
+        }}
       />
       <Composition
         id="FullRouteOverview-Peaks"
-        // @ts-expect-error Remotion Composition generics
-        component={FullRouteOverviewPeaks}
-        durationInFrames={FPS * 30}
-        fps={FPS}
-        width={3840}
-        height={2160}
-      />
-      <Composition
-        id="FullRouteOverview-NoHUD"
-        // @ts-expect-error Remotion Composition generics
         component={FullRouteOverview}
+        schema={fullRouteOverviewSchema}
         durationInFrames={FPS * 30}
         fps={FPS}
         width={3840}
         height={2160}
         defaultProps={{
           showHud: false,
+          showPeaks: true,
+          grayscale: false,
+          routeColor: "#ff4444",
+        }}
+      />
+      <Composition
+        id="FullRouteOverview-NoHUD"
+        component={FullRouteOverview}
+        schema={fullRouteOverviewSchema}
+        durationInFrames={FPS * 30}
+        fps={FPS}
+        width={3840}
+        height={2160}
+        defaultProps={{
+          showHud: false,
+          showPeaks: false,
+          grayscale: false,
+          routeColor: "#ff4444",
         }}
       />
       <Composition
         id="FullRouteOverview-BW-NoHUD"
-        // @ts-expect-error Remotion Composition generics
-        component={FullRouteOverviewBW}
+        component={FullRouteOverview}
+        schema={fullRouteOverviewSchema}
         durationInFrames={FPS * 30}
         fps={FPS}
         width={3840}
         height={2160}
         defaultProps={{
           showHud: false,
+          showPeaks: false,
+          grayscale: true,
+          routeColor: "#ff4444",
         }}
       />
       <Composition
@@ -750,6 +777,7 @@ export const RemotionRoot: React.FC = () => {
             startKm: 0,
             endKm: 10,
             durationSeconds: 20,
+            holdAtEnd: 10,
           },
           map: {
             provider: "esri-street" as const,
@@ -790,6 +818,7 @@ export const RemotionRoot: React.FC = () => {
             photoBlendMode: "multiply" as const,
             photoBackdropOpacity: 100,
             photoMovement: "ken-burns" as const,
+            photoZoomAmount: "100",
             photoTransition: "crossfade" as const,
           },
           hud: {
@@ -876,7 +905,6 @@ export const RemotionRoot: React.FC = () => {
       />
       <Composition
         id="Photos-DevilsPeak"
-        // @ts-expect-error Remotion Composition generics
         component={PhotosDevilsPeak}
         durationInFrames={FPS * 10}
         fps={FPS}
@@ -885,7 +913,6 @@ export const RemotionRoot: React.FC = () => {
       />
       <Composition
         id="Photos-DevilsPeak-02"
-        // @ts-expect-error Remotion Composition generics
         component={PhotosDevilsPeak02}
         durationInFrames={FPS * 10}
         fps={FPS}

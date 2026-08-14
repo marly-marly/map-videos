@@ -15,21 +15,29 @@ import {
   useVideoConfig,
   staticFile,
 } from "remotion";
+import type { CalculateMetadataFunction } from "remotion";
 import { z } from "zod";
-import { parseGPX } from "../lib/gpx-browser-parser";
 import {
-  processRoute,
-  extractSegment,
-} from "../lib/route-processor";
-import {
-  computeViewport,
   coordsToPixels,
   mapProviderEnum,
   mapProviderOptionalEnum,
   blendModeEnum,
 } from "../lib/tile-viewport";
+import {
+  bearing,
+  computePathMetrics,
+  elevationGainAtDraw,
+  findCoordsAtDistance,
+  glowPulseOpacity,
+  offsetPoint,
+  pointAtDrawFraction,
+  polylineToPath,
+  scaledDistanceAtDraw,
+} from "../lib/route-geometry";
+import { computeCenteredViewport } from "../lib/centered-viewport";
+import { seededRandom } from "../lib/seeded-random";
+import { useGpxSegment } from "../hooks/useGpxSegment";
 import { TileMapBackground } from "./TileMapBackground";
-import { lngToTileX, latToTileY, tileXToLng, tileYToLat, TILE_SIZE } from "../lib/mercator";
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -44,6 +52,7 @@ const routeGroup = z.object({
   startKm: z.number().min(0).describe("Start km (0 = route start)"),
   endKm: z.number().min(0).describe("End km (9999 = full route)"),
   durationSeconds: z.number().min(1).max(300).describe("Video duration in seconds"),
+  holdAtEnd: z.number().min(0).max(50).describe("% of duration to freeze at the end after drawing finishes (line, dot, photos all hold)"),
 });
 
 const mapGroup = z.object({
@@ -100,6 +109,7 @@ const photosGroup = z.object({
       "pan-down",
     ])
     .describe("Cinematic movement for backdrop photos: zoomed in first so pans never show black edges"),
+  photoZoomAmount: z.string().describe("Comma-separated zoom amount per photo for all movements (% — 100=default, 0=static, 500=dramatic, negative=reverse direction). Pans get proportional zoom baseline + travel. Single value applies to all; last value repeats for unspecified photos."),
   photoTransition: z
     .enum([
       "crossfade",
@@ -132,82 +142,25 @@ export const indyTrackerSchema = z.object({
 
 export type IndyTrackerProps = z.infer<typeof indyTrackerSchema>;
 
-/** Dynamic duration from props */
-export const calculateIndyTrackerMetadata: Parameters<
-  typeof import("remotion").Composition
->[0]["calculateMetadata"] = ({ props }) => {
-  const p = props as IndyTrackerProps;
-  return { durationInFrames: Math.round(p.route.durationSeconds * 30) };
-};
+/**
+ * Dynamic duration from props.
+ *
+ * Annotated with Remotion's own `CalculateMetadataFunction` at the concrete
+ * props type. Do NOT go back to scraping the signature via
+ * `Parameters<typeof Composition>[0]["calculateMetadata"]` — applying
+ * `Parameters<>` to a generic function erases its type parameters to their
+ * constraints, so the props collapse to `Record<string, unknown>` and the
+ * return type then fails to match at the call site in Root.tsx.
+ */
+export const calculateIndyTrackerMetadata: CalculateMetadataFunction<
+  IndyTrackerProps
+> = ({ props }) => ({
+  durationInFrames: Math.round(props.route.durationSeconds * 30),
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Find [lng, lat] at a given distance along the segment by interpolation. */
-function findCoordsAtDistance(
-  coords: [number, number][],
-  distances: number[],
-  targetKm: number
-): [number, number] {
-  if (targetKm <= 0 || coords.length === 0) return coords[0];
-  if (targetKm >= distances[distances.length - 1]) return coords[coords.length - 1];
-
-  // Binary search for the interval
-  let lo = 0;
-  let hi = distances.length - 1;
-  while (lo < hi - 1) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (distances[mid] <= targetKm) lo = mid;
-    else hi = mid;
-  }
-
-  const t = (targetKm - distances[lo]) / (distances[hi] - distances[lo]);
-  return [
-    coords[lo][0] + t * (coords[hi][0] - coords[lo][0]),
-    coords[lo][1] + t * (coords[hi][1] - coords[lo][1]),
-  ];
-}
-
-/** Seeded random for reproducible photo placement. */
-function seededRandom(seed: number): () => number {
-  let s = seed || 1;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-/** Compute bearing between two [lng, lat] points in degrees. */
-function bearing(a: [number, number], b: [number, number]): number {
-  const dLng = ((b[0] - a[0]) * Math.PI) / 180;
-  const lat1 = (a[1] * Math.PI) / 180;
-  const lat2 = (b[1] * Math.PI) / 180;
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return (Math.atan2(y, x) * 180) / Math.PI;
-}
-
-/** Offset a [lng, lat] point by a distance in a given bearing (degrees). */
-function offsetPoint(
-  point: [number, number],
-  bearingDeg: number,
-  distanceKm: number,
-): [number, number] {
-  const R = 6371; // earth radius km
-  const brng = (bearingDeg * Math.PI) / 180;
-  const lat1 = (point[1] * Math.PI) / 180;
-  const lng1 = (point[0] * Math.PI) / 180;
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(distanceKm / R) +
-    Math.cos(lat1) * Math.sin(distanceKm / R) * Math.cos(brng)
-  );
-  const lng2 = lng1 + Math.atan2(
-    Math.sin(brng) * Math.sin(distanceKm / R) * Math.cos(lat1),
-    Math.cos(distanceKm / R) - Math.sin(lat1) * Math.sin(lat2)
-  );
-  return [(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI];
-}
 
 interface PhotoPlacement {
   filename: string;
@@ -311,46 +264,6 @@ function getTransitionStyle(
   }
 }
 
-/**
- * Compute a viewport centered on a geographic point.
- * The visible area is determined by zoom level — at zoom 17, each pixel
- * covers ~1.1m at lat 22, so 3840px ≈ 4.2km wide.
- */
-function computeCenteredViewport(
-  centerLng: number,
-  centerLat: number,
-  zoom: number,
-  provider: string,
-  cameraScale: number = 1, // 1 = default, 2 = 2x tighter, 0.5 = 2x wider
-) {
-  // Convert center to pixel space to calculate the geographic extent
-  const centerPxX = lngToTileX(centerLng, zoom) * TILE_SIZE;
-  const centerPxY = latToTileY(centerLat, zoom) * TILE_SIZE;
-
-  // Output is 3840x2160. Divide by cameraScale to zoom in/out.
-  // Add 20% extra on each side to handle look-ahead shifting.
-  const margin = 1.2;
-  const halfW = (3840 / 2) * margin / cameraScale;
-  const halfH = (2160 / 2) * margin / cameraScale;
-
-  const topLeftPxX = centerPxX - halfW;
-  const topLeftPxY = centerPxY - halfH;
-  const botRightPxX = centerPxX + halfW;
-  const botRightPxY = centerPxY + halfH;
-
-  // Convert back to lng/lat for bounds
-  const minLng = tileXToLng(topLeftPxX / TILE_SIZE, zoom);
-  const maxLng = tileXToLng(botRightPxX / TILE_SIZE, zoom);
-  const maxLat = tileYToLat(topLeftPxY / TILE_SIZE, zoom);
-  const minLat = tileYToLat(botRightPxY / TILE_SIZE, zoom);
-
-  // Use computeViewport with a bbox that covers the centered area
-  return computeViewport(
-    [[minLng, minLat], [maxLng, maxLat]],
-    { zoom, padding: 0, offsetX: 0, offsetY: 0, provider: provider === "ocean-composite" ? "hillshade" : provider }
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -358,7 +271,7 @@ function computeCenteredViewport(
 export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // Unpack grouped props back into flat locals. Keeping the old names means
   // the rest of the component body is untouched by the schema refactor.
-  const { gpxFile, startKm, endKm } = props.route;
+  const { gpxFile, startKm, endKm, holdAtEnd } = props.route;
   const {
     provider,
     provider2,
@@ -394,6 +307,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     photoBlendMode,
     photoBackdropOpacity,
     photoMovement,
+    photoZoomAmount,
     photoTransition,
   } = props.photos;
   const {
@@ -406,22 +320,27 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width, height } = useVideoConfig();
 
-  // Load GPX
-  const [gpxData, setGpxData] = useState<string | null>(null);
-  const [gpxHandle] = useState(() => delayRender("Loading GPX", { timeoutInMilliseconds: 30000 }));
-
-  useEffect(() => {
-    fetch(staticFile(gpxFile))
-      .then((r) => r.text())
-      .then((text) => { setGpxData(text); continueRender(gpxHandle); })
-      .catch(() => { console.error(`Failed to load: ${gpxFile}`); continueRender(gpxHandle); });
-  }, [gpxFile, gpxHandle]);
+  // Load GPX, process the route, and slice out startKm→endKm. The hook owns
+  // the delayRender handshake so no frame is captured until the fetch resolves.
+  const { gpxData, segment } = useGpxSegment(gpxFile, startKm, endKm);
 
   // Preload all photos so they're ready before any frame is captured
   const photoFiles = useMemo(() => {
     if (!photos) return [];
     return photos.split(",").map((s) => s.trim()).filter(Boolean);
   }, [photos]);
+
+  // Per-photo zoom amount (%) — accepts a comma-separated list. Last value
+  // repeats for unspecified photos so a single number still works as a
+  // global default. Negative values flip the zoom direction (ken-burns and
+  // zoom-in then zoom OUT, starting from a zoomed-in framing).
+  const photoZoomAmounts = useMemo(() => {
+    const parsed = (photoZoomAmount || "")
+      .split(",")
+      .map((s) => parseFloat(s.trim()))
+      .filter((n) => !isNaN(n));
+    return parsed.length > 0 ? parsed : [100];
+  }, [photoZoomAmount]);
 
   const [photoHandle] = useState(() =>
     photoFiles.length > 0
@@ -447,24 +366,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     });
   }, [photoFiles, photosFolder, photoHandle]);
 
-  // Process route
-  const route = useMemo(() => {
-    if (!gpxData) return null;
-    try { return processRoute(parseGPX(gpxData).points); }
-    catch (e) { console.error("GPX error:", e); return null; }
-  }, [gpxData]);
-
-  const actualEndKm = route ? Math.min(endKm, route.totalDistanceKm) : endKm;
-
-  const segment = useMemo(() => {
-    if (!route) return null;
-    try { return extractSegment(route, startKm, actualEndKm); }
-    catch (e) { console.error("Segment error:", e); return null; }
-  }, [route, startKm, actualEndKm]);
-
   // Animation progress
   const progress = frame / durationInFrames;
-  const drawEnd = 0.90; // line drawing finishes at 90%, hold for last 10%
+  // drawEnd = fraction of duration where the line/dot/photos finish moving.
+  // The remaining (holdAtEnd %) freezes the scene on the final frame state.
+  const drawEnd = Math.max(0.01, 1 - holdAtEnd / 100);
   const easedDraw = Math.min(1, Math.max(0, progress / drawEnd));
 
   const segmentLengthKm = segment?.segmentLengthKm ?? 0;
@@ -472,13 +378,12 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // instead of linear interpolation, so the counter freezes during ferry crossings.
   const currentDistanceKm = useMemo(() => {
     if (!segment) return startKm;
-    const dists = segment.segmentDistances;
-    // Find the distance at the current draw position
-    const targetIdx = Math.min(
-      dists.length - 1,
-      Math.round(easedDraw * (dists.length - 1))
+    return scaledDistanceAtDraw(
+      segment.segmentDistances,
+      startKm,
+      easedDraw,
+      distanceScale
     );
-    return (startKm + dists[targetIdx]) * (distanceScale / 100);
   }, [segment, startKm, easedDraw, distanceScale]);
 
   // Current geographic position (raw dot position)
@@ -683,11 +588,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
 
     if (smoothRoute <= 0) {
       // Sharp path
-      let d = `M ${segmentPoints[0].x} ${segmentPoints[0].y}`;
-      for (let i = 1; i < segmentPoints.length; i++) {
-        d += ` L ${segmentPoints[i].x} ${segmentPoints[i].y}`;
-      }
-      return d;
+      return polylineToPath(segmentPoints);
     }
 
     // Catmull-Rom spline → cubic bezier curves
@@ -714,83 +615,37 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     return d;
   }, [segmentPoints, smoothRoute]);
 
-  // Path measurement — computed synchronously from segmentPoints.
-  // Previously we used SVGPathElement.getTotalLength() and getPointAtLength(),
-  // which required an effect to run after the DOM committed. That caused the
-  // leading dot to use stale path data for one frame whenever segmentPoints
-  // changed (e.g. while the camera panned), making the dot visibly detach from
-  // the line. Computing lengths in JS from the same points we build the path
-  // from keeps the dot and line perfectly in sync every frame.
-  const pathMetrics = useMemo(() => {
-    if (segmentPoints.length < 2) {
-      return { totalLength: 0, cumLengths: [0] };
-    }
-    const cumLengths: number[] = [0];
-    let total = 0;
-    for (let i = 1; i < segmentPoints.length; i++) {
-      const dx = segmentPoints[i].x - segmentPoints[i - 1].x;
-      const dy = segmentPoints[i].y - segmentPoints[i - 1].y;
-      total += Math.hypot(dx, dy);
-      cumLengths.push(total);
-    }
-    return { totalLength: total, cumLengths };
-  }, [segmentPoints]);
+  // Path measurement — computed synchronously from segmentPoints so the dot
+  // never lags a frame behind the line (see computePathMetrics for why).
+  const pathMetrics = useMemo(
+    () => computePathMetrics(segmentPoints),
+    [segmentPoints]
+  );
 
   const pathLength = pathMetrics.totalLength;
   const dashOffset = pathLength > 0 ? pathLength * (1 - easedDraw) : pathLength;
 
   // Runner dot position — binary-search the polyline to the drawn distance.
-  // Note: this measures polyline length, not bezier arc length. For the
-  // tension values we use in practice the two agree to well under a pixel,
-  // and crucially the dot lives on the *polyline* vertices the path passes
-  // through, so the dot tracks the visible line instead of floating ahead.
-  const currentPoint = useMemo(() => {
-    if (segmentPoints.length === 0) return { x: 0, y: 0 };
-    if (segmentPoints.length === 1) return segmentPoints[0];
-    const target = pathMetrics.totalLength * easedDraw;
-    const cum = pathMetrics.cumLengths;
-    let lo = 0;
-    let hi = cum.length - 1;
-    while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
-      if (cum[mid] <= target) lo = mid;
-      else hi = mid;
-    }
-    const segLen = cum[hi] - cum[lo];
-    const t = segLen > 0 ? (target - cum[lo]) / segLen : 0;
-    return {
-      x: segmentPoints[lo].x + t * (segmentPoints[hi].x - segmentPoints[lo].x),
-      y: segmentPoints[lo].y + t * (segmentPoints[hi].y - segmentPoints[lo].y),
-    };
-  }, [segmentPoints, easedDraw, pathMetrics]);
+  // Note this measures polyline length, not bezier arc length, which is what
+  // keeps the dot on the visible line even when smoothRoute > 0.
+  const currentPoint = useMemo(
+    () => pointAtDrawFraction(segmentPoints, pathMetrics, easedDraw),
+    [segmentPoints, easedDraw, pathMetrics]
+  );
 
   // Elevation gain
   const cumulativeElevGain = useMemo(() => {
     if (!segment) return 0;
-    const dists = segment.segmentDistances;
-    const elevs = segment.segmentElevations;
-    const targetDist = segmentLengthKm * easedDraw;
-    let gain = 0;
-    for (let i = 1; i < elevs.length; i++) {
-      if (dists[i] > targetDist) {
-        if (dists[i - 1] < targetDist) {
-          const t = (targetDist - dists[i - 1]) / (dists[i] - dists[i - 1]);
-          const diff = elevs[i - 1] + t * (elevs[i] - elevs[i - 1]) - elevs[i - 1];
-          if (diff > 0) gain += diff;
-        }
-        break;
-      }
-      const diff = elevs[i] - elevs[i - 1];
-      if (diff > 0) gain += diff;
-    }
-    return (segment.segmentStartElevGain || 0) + gain;
+    return elevationGainAtDraw(
+      segment.segmentDistances,
+      segment.segmentElevations,
+      segmentLengthKm * easedDraw,
+      segment.segmentStartElevGain
+    );
   }, [easedDraw, segment, segmentLengthKm]);
 
   // Pulse
-  const pulseRate = dotPulseSpeed / 100;
-  const glowPulse = pulseRate > 0
-    ? 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2 * pulseRate)
-    : 0.7;
+  const glowPulse = glowPulseOpacity(dotPulseSpeed, frame, fps);
 
   // Photo placements — precompute geographic positions offset from route
   const photoList = useMemo(() => {
@@ -968,28 +823,52 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // own trigger km, 1 at the next photo's trigger km, or end of segment).
   const movementTransform = (progress: number, index: number): string => {
     const p = Math.max(0, Math.min(1, progress));
+    // Look up this photo's zoom amount from the parsed list. List shorter
+    // than the photo count → last value repeats. Magnitude controls how much
+    // the photo zooms; sign controls direction (positive = push in, negative
+    // = pull out, starting from an already-zoomed-in framing).
+    const raw =
+      photoZoomAmounts[index] ??
+      photoZoomAmounts[photoZoomAmounts.length - 1] ??
+      100;
+    const mag = Math.abs(raw) / 100;
+    // For negative values we reverse `p` on the curve — the photo begins at
+    // the zoomed-in / end-of-pan position and travels back to baseline.
+    // Drift on ken-burns is left unchanged so motion direction is independent
+    // of zoom direction (cinematic "pull-back while panning" still works).
+    const direction = raw >= 0 ? p : 1 - p;
+    // Pan-mode parameters. At mag=1 these match the previous hardcoded
+    // values (1.15 scale + ±4% travel). Zoom baseline and pan distance
+    // scale together so the translate never reveals black edges (~53% of
+    // available headroom is used at any mag).
+    const zoomBasePan = 1 + 0.15 * mag;
+    const panAmt = 4 * mag;
     switch (photoMovement) {
       case "none":
         return "none";
       case "zoom-in":
-        return `scale(${1.0 + 0.2 * p})`;
+        return `scale(${1.0 + 0.2 * mag * direction})`;
       case "zoom-out":
-        return `scale(${1.2 - 0.2 * p})`;
+        // Start zoomed in by `0.2 * mag`, end at 1.0 (matches original
+        // 1.2 → 1.0 sweep when mag = 1). Negative raw inverts to a zoom-in.
+        return `scale(${1.0 + 0.2 * mag * (1 - direction)})`;
       case "pan-left":
-        return `scale(1.15) translate(${-4 + 8 * p}%, 0%)`;
+        return `scale(${zoomBasePan}) translate(${-panAmt + 2 * panAmt * direction}%, 0%)`;
       case "pan-right":
-        return `scale(1.15) translate(${4 - 8 * p}%, 0%)`;
+        return `scale(${zoomBasePan}) translate(${panAmt - 2 * panAmt * direction}%, 0%)`;
       case "pan-up":
-        return `scale(1.15) translate(0%, ${-4 + 8 * p}%)`;
+        return `scale(${zoomBasePan}) translate(0%, ${-panAmt + 2 * panAmt * direction}%)`;
       case "pan-down":
-        return `scale(1.15) translate(0%, ${4 - 8 * p}%)`;
+        return `scale(${zoomBasePan}) translate(0%, ${panAmt - 2 * panAmt * direction}%)`;
       case "ken-burns": {
         // Seeded-per-photo angle so each photo drifts its own direction
         const rng = seededRandom(photoSeed + index * 37 + 1);
         const angle = rng() * Math.PI * 2;
         const tx = Math.cos(angle) * 3.5 * p;
         const ty = Math.sin(angle) * 3.5 * p;
-        const scale = 1.1 + 0.12 * p;
+        // 1.1 baseline gives pan headroom regardless of zoom amount; only
+        // the 0.12 zoom delta is scaled. At mag 0 the photo still drifts.
+        const scale = 1.1 + 0.12 * mag * direction;
         return `scale(${scale}) translate(${tx}%, ${ty}%)`;
       }
       default:
@@ -997,15 +876,45 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     }
   };
 
-  // Movement progress for backdrop photo i — starts at its trigger km, ends
-  // at the next photo's trigger km (or end of segment).
+  // Movement progress for backdrop photo i — paced in *frame* time, not in
+  // drawn-km, so effects like ken-burns / pan keep animating through the
+  // `holdAtEnd` freeze. Non-last photos still finish their movement at the
+  // exact frame the next photo activates (identical to the drawn-km cadence),
+  // so only the trailing photo benefits from the extended lifetime.
+  //
+  // Pre-roll + tail extension: we shift the lifetime to span the photo's
+  // *visible* window — i.e. from when its fade-in *begins* to when its
+  // fade-out *ends*. Without this the photo sits stationary for the full
+  // fade-in (motion at p=0), then jerks into motion once visible, and
+  // freezes again at p=1 during the fade-out. Photo[0] uses the approach
+  // window (`backdropFadeWindow`, runs even when photoTransition === "cut");
+  // later photos use `transitionWindow` (which is 0 for "cut", giving no
+  // shift — and with cut there's no fade to overlap with anyway).
   const backdropProgressFor = (index: number): number => {
     const me = backdropPhotos[index];
     if (!me) return 0;
     const next = backdropPhotos[index + 1];
-    const endKm = next ? next.km : segmentLengthKm;
-    const lifetime = Math.max(1e-6, endKm - me.km);
-    return (currentKmForBackdrop - me.km) / lifetime;
+
+    const lenKm = Math.max(1e-6, segmentLengthKm);
+    const naiveStart = drawEnd * (me.km / lenKm) * durationInFrames;
+    const naiveEnd = next
+      ? drawEnd * (next.km / lenKm) * durationInFrames
+      : durationInFrames;
+
+    const preRollKm = index === 0 ? backdropFadeWindow : transitionWindow;
+    const preRollFrames =
+      drawEnd * (preRollKm / lenKm) * durationInFrames;
+    // Tail extension: photo[i] keeps moving while it fades out into photo[i+1]
+    // (same `transitionWindow` km that covers the cross-fade). Last photo
+    // already runs to durationInFrames so no tail shift needed.
+    const tailFrames = next
+      ? drawEnd * (transitionWindow / lenKm) * durationInFrames
+      : 0;
+
+    const startFrame = Math.max(0, naiveStart - preRollFrames);
+    const endFrame = Math.min(durationInFrames, naiveEnd + tailFrames);
+    const lifetime = Math.max(1, endFrame - startFrame);
+    return (frame - startFrame) / lifetime;
   };
 
   return (
@@ -1164,7 +1073,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
           viewport={viewport}
           style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
         />
-        {hasProvider2 && viewport2 && provider2 !== "none" && (
+        {hasProvider2 && viewport2 && (
           <div
             style={{
               position: "absolute",
@@ -1208,7 +1117,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
               viewport={viewportEnd}
               style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
             />
-            {hasProviderEnd2 && viewportEnd2 && providerEnd2 !== "none" && (
+            {hasProviderEnd2 && viewportEnd2 && (
               <div
                 style={{
                   position: "absolute",

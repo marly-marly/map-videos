@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/wan-chai-gap-bing-aerial-meta.json";
 
-export interface WanChaiGapBingAerialProps {
+export type WanChaiGapBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

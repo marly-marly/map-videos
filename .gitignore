@@ -1,3 +1,10 @@
 node_modules/
 dist/
 .cache/
+
+# Rendered video output. These are 4K MP4s — hundreds of MB each — and are
+# build artifacts, not source. Deliver them out-of-band, don't commit them.
+out/
+
+# Claude Code scratch worktrees.
+.claude/worktrees/

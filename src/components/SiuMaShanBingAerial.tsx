@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/siu-ma-shan-bing-aerial-meta.json";
 
-export interface SiuMaShanBingAerialProps {
+export type SiuMaShanBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

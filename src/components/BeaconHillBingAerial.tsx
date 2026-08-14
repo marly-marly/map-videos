@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/beacon-hill-bing-aerial-meta.json";
 
-export interface BeaconHillBingAerialProps {
+export type BeaconHillBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;

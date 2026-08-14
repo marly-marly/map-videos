@@ -2,7 +2,7 @@ import React from "react";
 import { RouteSegmentVideo, SegmentMeta } from "./RouteSegmentVideo";
 import meta from "../data/mount-nicholson-bing-aerial-meta.json";
 
-export interface MountNicholsonBingAerialProps {
+export type MountNicholsonBingAerialProps = {
   routeColor: string;
   routeWidth: number;
   dotSize?: number;
