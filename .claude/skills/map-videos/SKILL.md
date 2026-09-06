@@ -161,8 +161,8 @@ project: max delta 2 (GPXSegment, static camera) to 8 (IndyTracker, moving camer
 
 ## Known debt — check `docs/ARCHITECTURE.md` before "fixing"
 
-Several things look like bugs but are deliberate open questions, most notably: 13 legacy
-compositions are handed 11 props each that their wrappers silently discard, and the 24
-per-segment wrapper components are pure boilerplate awaiting a decision on that first item.
-Both are documented with the reasoning. Don't "tidy" them without asking — the fix changes
-what existing videos look like.
+Several things look like bugs but are deliberate open questions, most notably: the 24
+per-segment wrapper components are pure prop-forwarding boilerplate awaiting a table+factory
+refactor, and the maplibre-gl path (`MapRouteVideo`) is vestigial but still the target of
+`npm run render`. Both are documented with the reasoning. Don't "tidy" them without asking —
+the fix changes what existing videos look like.

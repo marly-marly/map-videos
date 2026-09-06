@@ -8,3 +8,6 @@ out/
 
 # Claude Code scratch worktrees.
 .claude/worktrees/
+
+# Per-machine Claude Code permissions allowlist. Personal, not shared.
+.claude/settings.local.json

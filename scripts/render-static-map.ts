@@ -409,13 +409,11 @@ async function main() {
     .png()
     .toBuffer();
 
-  // Save the output
+  // Save the output. The PNG is served at runtime via Remotion's staticFile(), so it
+  // lives in public/. The metadata JSON is imported as a module, so it lives in src/data/.
   const outDir = path.join(__dirname, "../src/data");
-  const outPng = path.join(outDir, `${OUTPUT_NAME}.png`);
+  const outPng = path.join(__dirname, "../public", `${OUTPUT_NAME}.png`);
   fs.writeFileSync(outPng, croppedBuf);
-  // Also copy to public for Remotion's staticFile()
-  const publicPng = path.join(__dirname, "../public", `${OUTPUT_NAME}.png`);
-  fs.writeFileSync(publicPng, croppedBuf);
   console.log(`Saved ${outPng} (${OUTPUT_WIDTH}x${OUTPUT_HEIGHT})`);
 
   // Convert route segment coordinates to pixel positions in the final image

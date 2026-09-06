@@ -48,8 +48,8 @@ Two families of composition, distinguished by where the map comes from:
 
 - **Pre-rendered PNG** — `FullRouteOverview`, `RouteSegmentVideo` and its per-segment
   wrappers. The basemap is a PNG baked once by `scripts/render-static-map.ts` and committed
-  to `src/data/`, paired with a `*-meta.json` holding the viewport metadata and the projected
-  pixel points. Cheap and deterministic; the camera can only pan/zoom within the baked image.
+  to `public/` (loaded at runtime via `staticFile()`), paired with a `*-meta.json` in
+  `src/data/` holding the viewport metadata and the projected pixel points. Cheap and deterministic; the camera can only pan/zoom within the baked image.
 - **Live tiles** — `GPXSegment`, `IndyTracker`. `TileMapBackground` fetches a tile grid at
   render time. Expensive and network-dependent, but the camera can go anywhere at any zoom
   and providers can be crossfaded.
@@ -173,8 +173,9 @@ tiers, in increasing order of health:
    look like these.**
 2. **Schema-less with `segmentPropsSchema`** — the 11 numbered `NN-Name-BingAerial` entries.
    These are the canonical export list for the final video.
-3. **Legacy, suppressed** — the 13 older entries carrying
-   `// @ts-expect-error Remotion Composition generics`. See "Known debt".
+3. **Legacy, suppressed** — the 15 older entries carrying
+   `// @ts-expect-error Remotion Composition generics`: `MapRouteVideo`, the 12 un-numbered
+   segment names, and the two `Backup-*` entries. See "Known debt".
 
 ### Why `@ts-expect-error` was needed at all
 

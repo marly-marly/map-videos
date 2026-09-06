@@ -50,7 +50,7 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 ```
 .
 ├── HK_Southern_Loop_2025.gpx     Source GPX (input to prepare-gpx)
-├── public/                       Static assets served by Remotion
+├── public/                       Static assets served by Remotion via staticFile()
 │   ├── route.gpx                 Primary GPX consumed at runtime
 │   ├── *.png                     Pre-rendered static map backgrounds per segment
 │   ├── photos-devils-peak/       Photo-slideshow assets
@@ -58,7 +58,7 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 ├── remotion.config.ts            Renderer config (ANGLE GL, 60s timeout)
 ├── scripts/
 │   ├── prepare-gpx.ts            Simplify + bake distances into route-processed.json
-│   └── render-static-map.ts      One-off static map renderer
+│   └── render-static-map.ts      Bakes a basemap PNG into public/ + its *-meta.json into src/data/
 ├── src/
 │   ├── Root.tsx                  Composition registry — every video is listed here
 │   ├── components/               One file per composition
@@ -68,13 +68,22 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 │   │   ├── FullRouteOverview.tsx All 5 overview variants, flag-driven
 │   │   ├── TileMapBackground.tsx Tile grid renderer with retry + delayRender
 │   │   └── (per-segment named wrappers: DevilsPeak, SiuMaShan, …)
+│   ├── data/
+│   │   ├── route-processed.json  Simplified track written by prepare-gpx
+│   │   └── *-meta.json           Viewport metadata + projected pixel points per basemap PNG
+│   ├── hooks/
+│   │   ├── useGpxSegment.ts      Fetch + parse + slice a GPX under a delayRender handle
+│   │   └── useRouteAnimation.ts  Legacy maplibre animation (MapRouteVideo only)
 │   └── lib/
 │       ├── tile-viewport.ts      Tile providers, viewport math, coord→pixel
+│       ├── route-geometry.ts     Path metrics + dot position shared by the live-tile compositions
+│       ├── centered-viewport.ts  Runner-centred viewport used by IndyTracker
 │       ├── route-processor.ts    Distance/elevation/segment extraction
 │       ├── gpx-browser-parser.ts Browser-safe GPX parser
 │       ├── mercator.ts           Web Mercator helpers
-│       └── map-style.ts
-└── out/                          Rendered videos (gitignored — actually it's not, see Maintenance)
+│       ├── seeded-random.ts      Deterministic RNG for frame-stable randomness
+│       └── map-style.ts          Legacy maplibre style (MapRouteVideo only)
+└── out/                          Rendered videos (gitignored)
 ```
 
 ---
@@ -86,6 +95,13 @@ npx remotion render <CompositionId> --gl=angle --concurrency=1 out/<name>.mp4
 - **`FullRouteOverview` / `-BW` / `-Peaks` / `-NoHUD` / `-BW-NoHUD`** — Static fly-over of the entire loop with logo reveal. All five are **one component** driven by three booleans (`showHud`, `showPeaks`, `grayscale`); `-BW` is a CSS filter over the same basemap PNG, not a separate asset.
 - **`PhotoSlideshow`** — 4K photo deck. Styles: `ken-burns`, `mosaic`, `photo-prints`, `film-strip`, `parallax`, `editorial-grid`, `slide-push`, `zoom-through-black`. `calculateMetadata` adapts `durationInFrames` to the chosen photo count.
 - **`01-TseungKwanO-BingAerial` … `11-SaiKung-BingAerial`** — Pre-configured numbered segments with `BingAerial` map. Use these as the canonical export list for the final video.
+
+The remaining registry entries, for completeness:
+
+- **`TseungKwanO` … `SaiKung`** (12 un-numbered names) — the original static-PNG segment videos, superseded by the numbered `BingAerial` set. Kept so old renders can be reproduced.
+- **`Backup-Kowloon-BingAerial` / `Backup-MongKok-BingAerial`** — alternate takes on the two Kowloon segments; `09-KowloonMongKok-BingAerial` is the one in the export list.
+- **`MapRouteVideo`** — the original maplibre-gl flyover. Still the target of `npm run render`, otherwise unused; see "Known debt" in `docs/ARCHITECTURE.md`.
+- **`MountDavis01` / `MountDavis02`, `Photos-DevilsPeak` / `Photos-DevilsPeak-02`** — preconfigured `PhotoSlideshow` decks over the two photo folders in `public/`.
 
 All compositions render at **3840 × 2160 @ 30 fps**.
 
@@ -160,7 +176,7 @@ The km boundaries on the numbered segments (`01-TseungKwanO-BingAerial` through 
 
 ### Code style
 
-- Prettier with default config (`.prettierrc`).
+- Prettier with default config (`.prettierrc`). `npx prettier --check "src/**/*.{ts,tsx}" "scripts/*.ts"` should pass.
 - TypeScript strict-ish; the schema-driven compositions (`IndyTracker`, `GPXSegment`, `PhotoSlideshow`) infer their props from Zod via `z.infer<typeof schema>` rather than hand-maintained interfaces. Keep that pattern when adding new ones.
 - Schema groups (`route`, `map`, `camera`, `line`, `fade`/`photos`, `hud`) render as collapsible sections in Studio. Add new fields inside the appropriate group rather than at the top level.
 
