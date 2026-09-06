@@ -60,10 +60,14 @@ export const PhotosDevilsPeak: React.FC = () => {
           frame,
           [startFrame, endFrame],
           [0, 1],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
 
-        const scale = interpolate(localProgress, [0, 1], [kb.scaleFrom, kb.scaleTo]);
+        const scale = interpolate(
+          localProgress,
+          [0, 1],
+          [kb.scaleFrom, kb.scaleTo],
+        );
         const tx = interpolate(localProgress, [0, 1], [kb.xFrom, kb.xTo]);
         const ty = interpolate(localProgress, [0, 1], [kb.yFrom, kb.yTo]);
 
@@ -73,32 +77,35 @@ export const PhotosDevilsPeak: React.FC = () => {
             frame,
             [endFrame - FADE_FRAMES, endFrame],
             [1, 0],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
         } else if (i === photoCount - 1) {
           opacity = interpolate(
             frame,
             [startFrame, startFrame + FADE_FRAMES],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
         } else {
           const fadeIn = interpolate(
             frame,
             [startFrame, startFrame + FADE_FRAMES],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
           const fadeOut = interpolate(
             frame,
             [endFrame - FADE_FRAMES, endFrame],
             [1, 0],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
           opacity = Math.min(fadeIn, fadeOut);
         }
 
-        if (frame < startFrame - FADE_FRAMES || frame > endFrame + FADE_FRAMES) {
+        if (
+          frame < startFrame - FADE_FRAMES ||
+          frame > endFrame + FADE_FRAMES
+        ) {
           return null;
         }
 

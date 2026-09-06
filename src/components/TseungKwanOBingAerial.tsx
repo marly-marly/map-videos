@@ -16,7 +16,7 @@ export type TseungKwanOBingAerialProps = {
   showElevation?: boolean;
   distanceLabel?: string;
   elevationLabel?: string;
-}
+};
 
 const typedMeta = meta as unknown as SegmentMeta;
 

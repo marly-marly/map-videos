@@ -34,7 +34,7 @@ const simplified = turf.simplify(fullLine, {
 
 const simplifiedCoords = simplified.geometry.coordinates as [number, number][];
 console.log(
-  `Simplified from ${coordinates.length} to ${simplifiedCoords.length} points`
+  `Simplified from ${coordinates.length} to ${simplifiedCoords.length} points`,
 );
 
 // Compute cumulative distances from a lightly simplified version of the original track.
@@ -46,7 +46,9 @@ const mildSimplified = turf.simplify(fullLine, {
   highQuality: true,
 });
 const mildCoords = mildSimplified.geometry.coordinates as [number, number][];
-console.log(`Mild simplification: ${coordinates.length} → ${mildCoords.length} points`);
+console.log(
+  `Mild simplification: ${coordinates.length} → ${mildCoords.length} points`,
+);
 
 const mildCumulativeDistances: number[] = [0];
 for (let i = 1; i < mildCoords.length; i++) {
@@ -55,7 +57,8 @@ for (let i = 1; i < mildCoords.length; i++) {
   const dist = turf.distance(from, to, { units: "kilometers" });
   mildCumulativeDistances.push(mildCumulativeDistances[i - 1] + dist);
 }
-const totalDistanceKm = mildCumulativeDistances[mildCumulativeDistances.length - 1];
+const totalDistanceKm =
+  mildCumulativeDistances[mildCumulativeDistances.length - 1];
 console.log(`Smoothed total distance: ${totalDistanceKm.toFixed(2)} km`);
 
 // Detect ferry rides: segments where consecutive mildly-simplified points are >500m apart
@@ -69,15 +72,19 @@ for (let i = 1; i < mildCoords.length; i++) {
   // Ferry: large gap AND significant latitude change AND the points are in the harbour area
   // (lat ~22.28-22.30, lng ~114.15-114.18 = Victoria Harbour)
   const avgLat = (mildCoords[i][1] + mildCoords[i - 1][1]) / 2;
-  const isHarbourArea = avgLat > 22.28 && avgLat < 22.30;
+  const isHarbourArea = avgLat > 22.28 && avgLat < 22.3;
   if (gap > FERRY_GAP_THRESHOLD_KM && latDiff > 0.003 && isHarbourArea) {
-    console.log(`Ferry detected at km ${mildCumulativeDistances[i - 1].toFixed(1)}-${mildCumulativeDistances[i].toFixed(1)} (${gap.toFixed(2)} km)`);
+    console.log(
+      `Ferry detected at km ${mildCumulativeDistances[i - 1].toFixed(1)}-${mildCumulativeDistances[i].toFixed(1)} (${gap.toFixed(2)} km)`,
+    );
     ferryDistanceTotal += gap;
   }
   ferryAdjustments[i] = ferryDistanceTotal;
 }
 if (ferryDistanceTotal > 0) {
-  console.log(`Total ferry distance subtracted: ${ferryDistanceTotal.toFixed(2)} km`);
+  console.log(
+    `Total ferry distance subtracted: ${ferryDistanceTotal.toFixed(2)} km`,
+  );
 }
 
 // Map mild-simplified coordinates to nearest elevation values (for more accurate elevation gain)
@@ -97,21 +104,30 @@ const mildElevations: number[] = mildCoords.map((coord) => {
 });
 let mildElevGain = 0;
 for (let i = 1; i < mildElevations.length; i++) {
-  if (mildElevations[i] > mildElevations[i - 1]) mildElevGain += mildElevations[i] - mildElevations[i - 1];
+  if (mildElevations[i] > mildElevations[i - 1])
+    mildElevGain += mildElevations[i] - mildElevations[i - 1];
 }
-console.log(`Elevation gain (mild, ${mildCoords.length} pts): ${mildElevGain.toFixed(0)} m`);
+console.log(
+  `Elevation gain (mild, ${mildCoords.length} pts): ${mildElevGain.toFixed(0)} m`,
+);
 
 // Adjusted cumulative distances (ferry rides removed)
-const adjustedMildDistances = mildCumulativeDistances.map((d, i) => d - ferryAdjustments[i]);
+const adjustedMildDistances = mildCumulativeDistances.map(
+  (d, i) => d - ferryAdjustments[i],
+);
 const adjustedTotalKm = adjustedMildDistances[adjustedMildDistances.length - 1];
-console.log(`Adjusted total distance (no ferry): ${adjustedTotalKm.toFixed(2)} km`);
+console.log(
+  `Adjusted total distance (no ferry): ${adjustedTotalKm.toFixed(2)} km`,
+);
 
 // Map each display-simplified point to its cumulative distance from the smoothed track.
 // Use projection onto the mild track line (not just nearest vertex) for accuracy.
 const mildLine = turf.lineString(mildCoords);
 const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
   const pt = turf.point(coord);
-  const snapped = turf.nearestPointOnLine(mildLine, pt, { units: "kilometers" });
+  const snapped = turf.nearestPointOnLine(mildLine, pt, {
+    units: "kilometers",
+  });
   const segIdx = snapped.properties.index!; // index of the segment start vertex
 
   // Interpolate the raw distance between the two vertices of the matched segment
@@ -121,7 +137,8 @@ const cumulativeDistances: number[] = simplifiedCoords.map((coord) => {
   }
   const segStart = mildCumulativeDistances[segIdx];
   const segEnd = mildCumulativeDistances[segIdx + 1];
-  const segLen = mildCumulativeDistances[segIdx + 1] - mildCumulativeDistances[segIdx];
+  const segLen =
+    mildCumulativeDistances[segIdx + 1] - mildCumulativeDistances[segIdx];
   if (segLen === 0) return segStart;
   // snapped.properties.location is the distance along the line from its start
   const locOnLine = snapped.properties.location!; // km from start of mildLine

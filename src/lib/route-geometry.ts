@@ -35,13 +35,14 @@ export interface PixelPoint {
 export function findCoordsAtDistance(
   coords: [number, number][],
   distances: number[],
-  targetKm: number
+  targetKm: number,
 ): [number, number] {
   if (coords.length === 0) {
     throw new Error("findCoordsAtDistance: coords is empty");
   }
   if (targetKm <= 0) return coords[0];
-  if (targetKm >= distances[distances.length - 1]) return coords[coords.length - 1];
+  if (targetKm >= distances[distances.length - 1])
+    return coords[coords.length - 1];
 
   // Binary search for the interval
   let lo = 0;
@@ -65,7 +66,9 @@ export function bearing(a: [number, number], b: [number, number]): number {
   const lat1 = (a[1] * Math.PI) / 180;
   const lat2 = (b[1] * Math.PI) / 180;
   const y = Math.sin(dLng) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
   return (Math.atan2(y, x) * 180) / Math.PI;
 }
 
@@ -81,12 +84,14 @@ export function offsetPoint(
   const lng1 = (point[0] * Math.PI) / 180;
   const lat2 = Math.asin(
     Math.sin(lat1) * Math.cos(distanceKm / R) +
-    Math.cos(lat1) * Math.sin(distanceKm / R) * Math.cos(brng)
+      Math.cos(lat1) * Math.sin(distanceKm / R) * Math.cos(brng),
   );
-  const lng2 = lng1 + Math.atan2(
-    Math.sin(brng) * Math.sin(distanceKm / R) * Math.cos(lat1),
-    Math.cos(distanceKm / R) - Math.sin(lat1) * Math.sin(lat2)
-  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(brng) * Math.sin(distanceKm / R) * Math.cos(lat1),
+      Math.cos(distanceKm / R) - Math.sin(lat1) * Math.sin(lat2),
+    );
   return [(lng2 * 180) / Math.PI, (lat2 * 180) / Math.PI];
 }
 
@@ -154,7 +159,7 @@ export function computePathMetrics(points: PixelPoint[]): PathMetrics {
 export function pointAtDrawFraction(
   points: PixelPoint[],
   metrics: PathMetrics,
-  drawFraction: number
+  drawFraction: number,
 ): PixelPoint {
   if (points.length === 0) return { x: 0, y: 0 };
   if (points.length === 1) return points[0];
@@ -193,13 +198,13 @@ export function scaledDistanceAtDraw(
   segmentDistances: number[],
   startKm: number,
   drawFraction: number,
-  distanceScale: number
+  distanceScale: number,
 ): number {
   const dists = segmentDistances;
   // Find the distance at the current draw position
   const targetIdx = Math.min(
     dists.length - 1,
-    Math.round(drawFraction * (dists.length - 1))
+    Math.round(drawFraction * (dists.length - 1)),
   );
   return (startKm + dists[targetIdx]) * (distanceScale / 100);
 }
@@ -217,7 +222,7 @@ export function elevationGainAtDraw(
   distances: number[],
   elevations: number[],
   targetDist: number,
-  startElevGain: number
+  startElevGain: number,
 ): number {
   const dists = distances;
   const elevs = elevations;
@@ -226,8 +231,7 @@ export function elevationGainAtDraw(
   for (let i = 1; i < elevs.length; i++) {
     if (dists[i] > targetDist) {
       if (dists[i - 1] < targetDist) {
-        const t =
-          (targetDist - dists[i - 1]) / (dists[i] - dists[i - 1]);
+        const t = (targetDist - dists[i - 1]) / (dists[i] - dists[i - 1]);
         const interpElev = elevs[i - 1] + t * (elevs[i] - elevs[i - 1]);
         const diff = interpElev - elevs[i - 1];
         if (diff > 0) gain += diff;
@@ -251,7 +255,7 @@ export function elevationGainAtDraw(
 export function glowPulseOpacity(
   dotPulseSpeed: number,
   frame: number,
-  fps: number
+  fps: number,
 ): number {
   const pulseRate = dotPulseSpeed / 100; // 0 = static, 1 = default 1Hz, 5 = fast
   return pulseRate > 0

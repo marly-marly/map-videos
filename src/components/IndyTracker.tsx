@@ -51,52 +51,152 @@ const routeGroup = z.object({
   gpxFile: z.string().describe("GPX filename in public/ folder"),
   startKm: z.number().min(0).describe("Start km (0 = route start)"),
   endKm: z.number().min(0).describe("End km (9999 = full route)"),
-  durationSeconds: z.number().min(1).max(300).describe("Video duration in seconds"),
-  holdAtEnd: z.number().min(0).max(50).describe("% of duration to freeze at the end after drawing finishes (line, dot, photos all hold)"),
+  durationSeconds: z
+    .number()
+    .min(1)
+    .max(300)
+    .describe("Video duration in seconds"),
+  holdAtEnd: z
+    .number()
+    .min(0)
+    .max(50)
+    .describe(
+      "% of duration to freeze at the end after drawing finishes (line, dot, photos all hold)",
+    ),
 });
 
 const mapGroup = z.object({
   provider: mapProviderEnum.describe("Start tile provider"),
-  provider2: mapProviderOptionalEnum.describe("Optional overlay on top of provider ('none' = no overlay)"),
-  provider2BlendMode: blendModeEnum.describe("Blend mode for provider2 over provider"),
-  providerEnd: mapProviderEnum.describe("End tile provider (same = no transition)"),
-  providerEnd2: mapProviderOptionalEnum.describe("Optional overlay on top of providerEnd ('none' = no overlay)"),
-  providerEnd2BlendMode: blendModeEnum.describe("Blend mode for providerEnd2 over providerEnd"),
-  tileTransitionStart: z.number().min(0).max(100).describe("Tile crossfade begins at % of duration"),
-  tileTransitionEnd: z.number().min(0).max(100).describe("Tile crossfade ends at % of duration"),
+  provider2: mapProviderOptionalEnum.describe(
+    "Optional overlay on top of provider ('none' = no overlay)",
+  ),
+  provider2BlendMode: blendModeEnum.describe(
+    "Blend mode for provider2 over provider",
+  ),
+  providerEnd: mapProviderEnum.describe(
+    "End tile provider (same = no transition)",
+  ),
+  providerEnd2: mapProviderOptionalEnum.describe(
+    "Optional overlay on top of providerEnd ('none' = no overlay)",
+  ),
+  providerEnd2BlendMode: blendModeEnum.describe(
+    "Blend mode for providerEnd2 over providerEnd",
+  ),
+  tileTransitionStart: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Tile crossfade begins at % of duration"),
+  tileTransitionEnd: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Tile crossfade ends at % of duration"),
   zoom: z.number().min(10).max(19).describe("Tile zoom (higher = more detail)"),
 });
 
 const cameraGroup = z.object({
-  cameraZoom: z.number().min(10).max(500).describe("Camera closeness to dot (100=default, 200=2x tighter, 50=wider)"),
-  cameraTracking: z.enum(["follow", "cinematic"]).describe("follow = smooth tracking, cinematic = pre-calculated smooth path ignoring zigzags"),
-  lookAhead: z.number().min(-200).max(200).describe("Camera offset (positive=ahead, negative=behind dot)"),
+  cameraZoom: z
+    .number()
+    .min(10)
+    .max(500)
+    .describe(
+      "Camera closeness to dot (100=default, 200=2x tighter, 50=wider)",
+    ),
+  cameraTracking: z
+    .enum(["follow", "cinematic"])
+    .describe(
+      "follow = smooth tracking, cinematic = pre-calculated smooth path ignoring zigzags",
+    ),
+  lookAhead: z
+    .number()
+    .min(-200)
+    .max(200)
+    .describe("Camera offset (positive=ahead, negative=behind dot)"),
 });
 
 const lineGroup = z.object({
   routeColor: z.string().describe("Route line color"),
   routeWidth: z.number().min(1).max(50).describe("Route line width"),
-  dotSize: z.number().min(0).max(200).describe("Dot size (0=hidden, 100=default)"),
-  dotPulseSpeed: z.number().min(0).max(500).describe("Dot pulse speed (0=static, 100=default)"),
-  routeGlow: z.number().min(0).max(200).describe("Route glow (0=off, 100=default)"),
-  routeCasing: z.number().min(0).max(200).describe("Dark outline (0=off, 100=default)"),
-  routeShadow: z.number().min(0).max(200).describe("Soft shadow (0=off, 100=default)"),
-  smoothRoute: z.number().min(0).max(100).describe("Round corners on route (0=sharp, 50=default, 100=very smooth)"),
+  dotSize: z
+    .number()
+    .min(0)
+    .max(200)
+    .describe("Dot size (0=hidden, 100=default)"),
+  dotPulseSpeed: z
+    .number()
+    .min(0)
+    .max(500)
+    .describe("Dot pulse speed (0=static, 100=default)"),
+  routeGlow: z
+    .number()
+    .min(0)
+    .max(200)
+    .describe("Route glow (0=off, 100=default)"),
+  routeCasing: z
+    .number()
+    .min(0)
+    .max(200)
+    .describe("Dark outline (0=off, 100=default)"),
+  routeShadow: z
+    .number()
+    .min(0)
+    .max(200)
+    .describe("Soft shadow (0=off, 100=default)"),
+  smoothRoute: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Round corners on route (0=sharp, 50=default, 100=very smooth)"),
 });
 
 const photosGroup = z.object({
   photos: z.string().describe("Comma-separated photo filenames"),
   photosFolder: z.string().describe("Subfolder in public/ for photos"),
-  photoPositions: z.string().describe("Comma-separated km values where photos appear (e.g. 2.5,4.0,6.3)"),
-  photoStyle: z.enum(["scattered", "neat", "on-route", "backdrop"]).describe("scattered/neat/on-route = pinned thumbnails, backdrop = full-screen photo behind the map"),
-  photoSize: z.number().min(1).max(50).describe("Photo size (% of viewport width) — pinned styles only"),
-  photoTilt: z.number().min(0).max(30).describe("Random tilt on photos (0=straight, 8=default scattered, 30=wild)"),
-  photoReveal: z.enum(["fade", "drop", "instant"]).describe("How photos appear when line reaches them"),
-  photoRevealSpeed: z.number().min(10).max(500).describe("Reveal animation speed (100=default, 50=slower, 200=faster)"),
-  photoSeed: z.number().min(0).max(9999).describe("Random seed for scattered placement"),
+  photoPositions: z
+    .string()
+    .describe(
+      "Comma-separated km values where photos appear (e.g. 2.5,4.0,6.3)",
+    ),
+  photoStyle: z
+    .enum(["scattered", "neat", "on-route", "backdrop"])
+    .describe(
+      "scattered/neat/on-route = pinned thumbnails, backdrop = full-screen photo behind the map",
+    ),
+  photoSize: z
+    .number()
+    .min(1)
+    .max(50)
+    .describe("Photo size (% of viewport width) — pinned styles only"),
+  photoTilt: z
+    .number()
+    .min(0)
+    .max(30)
+    .describe(
+      "Random tilt on photos (0=straight, 8=default scattered, 30=wild)",
+    ),
+  photoReveal: z
+    .enum(["fade", "drop", "instant"])
+    .describe("How photos appear when line reaches them"),
+  photoRevealSpeed: z
+    .number()
+    .min(10)
+    .max(500)
+    .describe("Reveal animation speed (100=default, 50=slower, 200=faster)"),
+  photoSeed: z
+    .number()
+    .min(0)
+    .max(9999)
+    .describe("Random seed for scattered placement"),
   // Backdrop-only controls
-  photoBlendMode: blendModeEnum.describe("How the map blends over the backdrop photo (backdrop style only)"),
-  photoBackdropOpacity: z.number().min(0).max(100).describe("Backdrop photo intensity (100=full, 0=hidden)"),
+  photoBlendMode: blendModeEnum.describe(
+    "How the map blends over the backdrop photo (backdrop style only)",
+  ),
+  photoBackdropOpacity: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Backdrop photo intensity (100=full, 0=hidden)"),
   photoMovement: z
     .enum([
       "none",
@@ -108,8 +208,14 @@ const photosGroup = z.object({
       "pan-up",
       "pan-down",
     ])
-    .describe("Cinematic movement for backdrop photos: zoomed in first so pans never show black edges"),
-  photoZoomAmount: z.string().describe("Comma-separated zoom amount per photo for all movements (% — 100=default, 0=static, 500=dramatic, negative=reverse direction). Pans get proportional zoom baseline + travel. Single value applies to all; last value repeats for unspecified photos."),
+    .describe(
+      "Cinematic movement for backdrop photos: zoomed in first so pans never show black edges",
+    ),
+  photoZoomAmount: z
+    .string()
+    .describe(
+      "Comma-separated zoom amount per photo for all movements (% — 100=default, 0=static, 500=dramatic, negative=reverse direction). Pans get proportional zoom baseline + travel. Single value applies to all; last value repeats for unspecified photos.",
+    ),
   photoTransition: z
     .enum([
       "crossfade",
@@ -120,11 +226,19 @@ const photosGroup = z.object({
       "wipe",
       "zoom",
     ])
-    .describe("How backdrop photos hand off to the next one (backdrop style only)"),
+    .describe(
+      "How backdrop photos hand off to the next one (backdrop style only)",
+    ),
 });
 
 const hudGroup = z.object({
-  distanceScale: z.number().min(50).max(200).describe("Scale km counter to match Strava (100=as-is, 112=for route.gpx)"),
+  distanceScale: z
+    .number()
+    .min(50)
+    .max(200)
+    .describe(
+      "Scale km counter to match Strava (100=as-is, 112=for route.gpx)",
+    ),
   showDistance: z.boolean().describe("Show distance counter"),
   showElevation: z.boolean().describe("Show elevation counter"),
   distanceLabel: z.string().describe("Distance label (empty = ↔)"),
@@ -327,7 +441,10 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // Preload all photos so they're ready before any frame is captured
   const photoFiles = useMemo(() => {
     if (!photos) return [];
-    return photos.split(",").map((s) => s.trim()).filter(Boolean);
+    return photos
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }, [photos]);
 
   // Per-photo zoom amount (%) — accepts a comma-separated list. Last value
@@ -345,7 +462,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   const [photoHandle] = useState(() =>
     photoFiles.length > 0
       ? delayRender("Loading photos", { timeoutInMilliseconds: 30000 })
-      : null
+      : null,
   );
 
   useEffect(() => {
@@ -362,7 +479,9 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       const img = new Image();
       img.onload = done;
       img.onerror = done;
-      img.src = staticFile(photosFolder ? `${photosFolder}/${filename}` : filename);
+      img.src = staticFile(
+        photosFolder ? `${photosFolder}/${filename}` : filename,
+      );
     });
   }, [photoFiles, photosFolder, photoHandle]);
 
@@ -382,7 +501,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       segment.segmentDistances,
       startKm,
       easedDraw,
-      distanceScale
+      distanceScale,
     );
   }, [segment, startKm, easedDraw, distanceScale]);
 
@@ -392,7 +511,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     return findCoordsAtDistance(
       segment.coords,
       segment.segmentDistances,
-      segmentLengthKm * easedDraw
+      segmentLengthKm * easedDraw,
     );
   }, [segment, segmentLengthKm, easedDraw]);
 
@@ -431,14 +550,21 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       for (let i = start + 1; i < end; i++) {
         const [px, py] = coords[i];
         let d: number;
-        if (lSq === 0) d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+        if (lSq === 0)
+          d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
         else {
-          const t = Math.max(0, Math.min(1, ((px - sx) * ddx + (py - sy) * ddy) / lSq));
+          const t = Math.max(
+            0,
+            Math.min(1, ((px - sx) * ddx + (py - sy) * ddy) / lSq),
+          );
           const ex = px - sx - t * ddx;
           const ey = py - sy - t * ddy;
           d = Math.sqrt(ex * ex + ey * ey);
         }
-        if (d > mDist) { mDist = d; mIdx = i; }
+        if (d > mDist) {
+          mDist = d;
+          mIdx = i;
+        }
       }
       if (mDist > tolerance) {
         keepSet.add(mIdx);
@@ -450,7 +576,9 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
 
     const sortedIndices = Array.from(keepSet).sort((a, b) => a - b);
     const simplifiedCoords = sortedIndices.map((i) => coords[i]);
-    const simplifiedDists = sortedIndices.map((i) => segment.segmentDistances[i]);
+    const simplifiedDists = sortedIndices.map(
+      (i) => segment.segmentDistances[i],
+    );
 
     return { coords: simplifiedCoords, distances: simplifiedDists };
   }, [segment, cameraTracking, cameraZoom]);
@@ -461,7 +589,10 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
 
     // lookAhead as fraction of segment length: ±200 maps to ±20% of segment
     const offsetKm = (lookAhead / 100) * segmentLengthKm * 0.1;
-    const cameraDraw = Math.max(0, Math.min(1, easedDraw + offsetKm / segmentLengthKm));
+    const cameraDraw = Math.max(
+      0,
+      Math.min(1, easedDraw + offsetKm / segmentLengthKm),
+    );
     const cameraKm = segmentLengthKm * cameraDraw;
 
     if (cameraTracking === "cinematic" && cinematicPath) {
@@ -469,17 +600,26 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       const pos = findCoordsAtDistance(
         cinematicPath.coords,
         cinematicPath.distances,
-        cameraKm
+        cameraKm,
       );
 
       // Generous smoothing on top of the simplified path to prevent any kinks
       const windowKm = segmentLengthKm * 0.08;
       const numSamples = 15;
-      let sumLng = 0, sumLat = 0, totalWeight = 0;
+      let sumLng = 0,
+        sumLat = 0,
+        totalWeight = 0;
       for (let i = 0; i < numSamples; i++) {
         const t = i / (numSamples - 1);
-        const sKm = Math.max(0, Math.min(segmentLengthKm, cameraKm - windowKm + windowKm * 2 * t));
-        const sPos = findCoordsAtDistance(cinematicPath.coords, cinematicPath.distances, sKm);
+        const sKm = Math.max(
+          0,
+          Math.min(segmentLengthKm, cameraKm - windowKm + windowKm * 2 * t),
+        );
+        const sPos = findCoordsAtDistance(
+          cinematicPath.coords,
+          cinematicPath.distances,
+          sKm,
+        );
         const d = (t - 0.5) * 2;
         const w = Math.exp(-(d * d) * 2);
         sumLng += sPos[0] * w;
@@ -502,7 +642,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       const sampleDraw = cameraDraw - windowFraction + windowFraction * 2 * t;
       const clampedDraw = Math.max(0, Math.min(1, sampleDraw));
       const sampleKm = segmentLengthKm * clampedDraw;
-      const pos = findCoordsAtDistance(segment.coords, segment.segmentDistances, sampleKm);
+      const pos = findCoordsAtDistance(
+        segment.coords,
+        segment.segmentDistances,
+        sampleKm,
+      );
 
       const distFromCenter = Math.abs(t - 0.5) * 2;
       const weight = Math.exp(-distFromCenter * distFromCenter * 2);
@@ -512,19 +656,39 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     }
 
     return [sumLng / totalWeight, sumLat / totalWeight] as [number, number];
-  }, [segment, currentGeo, segmentLengthKm, easedDraw, lookAhead, cameraTracking, cinematicPath]);
+  }, [
+    segment,
+    currentGeo,
+    segmentLengthKm,
+    easedDraw,
+    lookAhead,
+    cameraTracking,
+    cinematicPath,
+  ]);
 
   // Dynamic viewport centered on the smoothed camera position
   const viewport = useMemo(() => {
     if (!smoothedCameraGeo) return null;
-    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, provider, cameraZoom / 100);
+    return computeCenteredViewport(
+      smoothedCameraGeo[0],
+      smoothedCameraGeo[1],
+      zoom,
+      provider,
+      cameraZoom / 100,
+    );
   }, [smoothedCameraGeo, zoom, provider, cameraZoom]);
 
   // Second viewport for tile transition (only when providers differ)
   const hasTileTransition = providerEnd !== provider;
   const viewportEnd = useMemo(() => {
     if (!smoothedCameraGeo || !hasTileTransition) return null;
-    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, providerEnd, cameraZoom / 100);
+    return computeCenteredViewport(
+      smoothedCameraGeo[0],
+      smoothedCameraGeo[1],
+      zoom,
+      providerEnd,
+      cameraZoom / 100,
+    );
   }, [smoothedCameraGeo, zoom, providerEnd, cameraZoom, hasTileTransition]);
 
   // Secondary / overlay viewports for each era. Only computed when the
@@ -533,14 +697,34 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   const hasProvider2 = provider2 !== "none";
   const viewport2 = useMemo(() => {
     if (!smoothedCameraGeo || !hasProvider2) return null;
-    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, provider2, cameraZoom / 100);
+    return computeCenteredViewport(
+      smoothedCameraGeo[0],
+      smoothedCameraGeo[1],
+      zoom,
+      provider2,
+      cameraZoom / 100,
+    );
   }, [smoothedCameraGeo, zoom, provider2, cameraZoom, hasProvider2]);
 
   const hasProviderEnd2 = providerEnd2 !== "none";
   const viewportEnd2 = useMemo(() => {
-    if (!smoothedCameraGeo || !hasTileTransition || !hasProviderEnd2) return null;
-    return computeCenteredViewport(smoothedCameraGeo[0], smoothedCameraGeo[1], zoom, providerEnd2, cameraZoom / 100);
-  }, [smoothedCameraGeo, zoom, providerEnd2, cameraZoom, hasTileTransition, hasProviderEnd2]);
+    if (!smoothedCameraGeo || !hasTileTransition || !hasProviderEnd2)
+      return null;
+    return computeCenteredViewport(
+      smoothedCameraGeo[0],
+      smoothedCameraGeo[1],
+      zoom,
+      providerEnd2,
+      cameraZoom / 100,
+    );
+  }, [
+    smoothedCameraGeo,
+    zoom,
+    providerEnd2,
+    cameraZoom,
+    hasTileTransition,
+    hasProviderEnd2,
+  ]);
 
   // Convert ALL segment coords to pixels in the dynamic viewport
   const segmentPoints = useMemo(() => {
@@ -570,10 +754,10 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       const p3 = pts[Math.min(pts.length - 1, i + 2)];
 
       // Catmull-Rom to cubic bezier control points
-      const cp1x = p1.x + (p2.x - p0.x) * tension / 6;
-      const cp1y = p1.y + (p2.y - p0.y) * tension / 6;
-      const cp2x = p2.x - (p3.x - p1.x) * tension / 6;
-      const cp2y = p2.y - (p3.y - p1.y) * tension / 6;
+      const cp1x = p1.x + ((p2.x - p0.x) * tension) / 6;
+      const cp1y = p1.y + ((p2.y - p0.y) * tension) / 6;
+      const cp2x = p2.x - ((p3.x - p1.x) * tension) / 6;
+      const cp2y = p2.y - ((p3.y - p1.y) * tension) / 6;
 
       d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
     }
@@ -585,7 +769,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // never lags a frame behind the line (see computePathMetrics for why).
   const pathMetrics = useMemo(
     () => computePathMetrics(segmentPoints),
-    [segmentPoints]
+    [segmentPoints],
   );
 
   const pathLength = pathMetrics.totalLength;
@@ -596,7 +780,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // keeps the dot on the visible line even when smoothRoute > 0.
   const currentPoint = useMemo(
     () => pointAtDrawFraction(segmentPoints, pathMetrics, easedDraw),
-    [segmentPoints, easedDraw, pathMetrics]
+    [segmentPoints, easedDraw, pathMetrics],
   );
 
   // Elevation gain
@@ -606,7 +790,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       segment.segmentDistances,
       segment.segmentElevations,
       segmentLengthKm * easedDraw,
-      segment.segmentStartElevGain
+      segment.segmentStartElevGain,
     );
   }, [easedDraw, segment, segmentLengthKm]);
 
@@ -616,8 +800,14 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // Photo placements — precompute geographic positions offset from route
   const photoList = useMemo(() => {
     if (!photos || !photoPositions || !segment) return [];
-    const filenames = photos.split(",").map((s) => s.trim()).filter(Boolean);
-    const positions = photoPositions.split(",").map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n));
+    const filenames = photos
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const positions = photoPositions
+      .split(",")
+      .map((s) => parseFloat(s.trim()))
+      .filter((n) => !isNaN(n));
     const rng = seededRandom(photoSeed);
 
     // Compute offset distance in km based on viewport size
@@ -634,9 +824,17 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       const km = positions[i];
       if (km > segment.segmentLengthKm) continue;
 
-      const pos = findCoordsAtDistance(segment.coords, segment.segmentDistances, km);
+      const pos = findCoordsAtDistance(
+        segment.coords,
+        segment.segmentDistances,
+        km,
+      );
       const nearbyKm = Math.min(segment.segmentLengthKm, km + 0.1);
-      const posAhead = findCoordsAtDistance(segment.coords, segment.segmentDistances, nearbyKm);
+      const posAhead = findCoordsAtDistance(
+        segment.coords,
+        segment.segmentDistances,
+        nearbyKm,
+      );
       const routeBearing = bearing(pos, posAhead);
 
       let geoPosition: [number, number];
@@ -652,9 +850,18 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
         // Walk forward along the route from km until the route is consistently
         // far enough from this point.
         let safeKm = km + photoCoverageKm;
-        for (let checkKm = km + 0.1; checkKm < Math.min(segment.segmentLengthKm, km + photoCoverageKm * 3); checkKm += 0.1) {
-          const checkPos = findCoordsAtDistance(segment.coords, segment.segmentDistances, checkKm);
-          const distLng = (checkPos[0] - pos[0]) * 111 * Math.cos((pos[1] * Math.PI) / 180);
+        for (
+          let checkKm = km + 0.1;
+          checkKm < Math.min(segment.segmentLengthKm, km + photoCoverageKm * 3);
+          checkKm += 0.1
+        ) {
+          const checkPos = findCoordsAtDistance(
+            segment.coords,
+            segment.segmentDistances,
+            checkKm,
+          );
+          const distLng =
+            (checkPos[0] - pos[0]) * 111 * Math.cos((pos[1] * Math.PI) / 180);
           const distLat = (checkPos[1] - pos[1]) * 111;
           const distKm = Math.sqrt(distLng * distLng + distLat * distLat);
           if (distKm < photoCoverageKm * 0.6) {
@@ -669,21 +876,37 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
         let perpBearing = routeBearing + side;
 
         rotation = photoTilt > 0 ? (rng() - 0.5) * photoTilt * 2 : 0;
-        const jitterBearing = photoStyle === "scattered" ? (rng() - 0.5) * 30 : 0;
+        const jitterBearing =
+          photoStyle === "scattered" ? (rng() - 0.5) * 30 : 0;
         perpBearing += jitterBearing;
 
         geoPosition = offsetPoint(pos, perpBearing, offsetKm);
         safeRevealKm = km; // no delay needed for offset photos
       }
 
-      placements.push({ filename: filenames[i], km, geoPosition, rotation, safeRevealKm });
+      placements.push({
+        filename: filenames[i],
+        km,
+        geoPosition,
+        rotation,
+        safeRevealKm,
+      });
     }
     return placements;
     // photoTilt IS read in this body (it drives `rotation`), so it must be a
     // dep — without it, changing tilt in Studio silently does nothing until
     // some other dep happens to change. photosFolder is deliberately absent:
     // this memo only computes placements, never resolves image paths.
-  }, [photos, photoPositions, photoStyle, photoSize, photoTilt, photoSeed, segment, cameraZoom]);
+  }, [
+    photos,
+    photoPositions,
+    photoStyle,
+    photoSize,
+    photoTilt,
+    photoSeed,
+    segment,
+    cameraZoom,
+  ]);
 
   // Convert photo positions to pixels in current viewport
   const photoPixels = useMemo(() => {
@@ -702,8 +925,21 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // Loading state
   if (!viewport || !segment) {
     return (
-      <AbsoluteFill style={{ backgroundColor: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "white", fontSize: 48, fontFamily: "'Courier New', monospace" }}>
+      <AbsoluteFill
+        style={{
+          backgroundColor: "#0a0a0a",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            color: "white",
+            fontSize: 48,
+            fontFamily: "'Courier New', monospace",
+          }}
+        >
           {!gpxData ? `Loading ${gpxFile}...` : "Processing route..."}
         </div>
       </AbsoluteFill>
@@ -737,8 +973,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
     if (currentKmForBackdrop < activeKm + transitionWindow) {
       transitionFrom = backdropActiveIndex - 1;
       transitionTo = backdropActiveIndex;
-      transitionProgress =
-        (currentKmForBackdrop - activeKm) / transitionWindow;
+      transitionProgress = (currentKmForBackdrop - activeKm) / transitionWindow;
     }
   }
 
@@ -778,9 +1013,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
   // begins) avoids the mid-playback stall that delayRender would otherwise
   // trigger when a fresh <Img> mounts halfway through the segment.
   const inApproachWindow =
-    isBackdrop &&
-    backdropPhotos.length > 0 &&
-    backdropActiveIndex < 0;
+    isBackdrop && backdropPhotos.length > 0 && backdropActiveIndex < 0;
 
   // Cinematic movement for backdrop photos.
   //
@@ -872,8 +1105,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       : durationInFrames;
 
     const preRollKm = index === 0 ? backdropFadeWindow : transitionWindow;
-    const preRollFrames =
-      drawEnd * (preRollKm / lenKm) * durationInFrames;
+    const preRollFrames = drawEnd * (preRollKm / lenKm) * durationInFrames;
     // Tail extension: photo[i] keeps moving while it fades out into photo[i+1]
     // (same `transitionWindow` km that covers the cross-fade). Last photo
     // already runs to durationInFrames so no tail shift needed.
@@ -915,8 +1147,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
                 left: 0,
                 width: "100%",
                 height: "100%",
-                backgroundColor:
-                  BLEND_NEUTRAL[mapBlendMode] || "transparent",
+                backgroundColor: BLEND_NEUTRAL[mapBlendMode] || "transparent",
                 opacity: 1 - blendActivation,
               }}
             />
@@ -944,12 +1175,12 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
               // otherwise hide the layer). Once past the boundary, the user's
               // chosen transition style takes over with full opacity.
               const style = isApproach
-                ? { opacity: blendActivation, transform: "none" as string | undefined, clipPath: undefined as string | undefined }
-                : getTransitionStyle(
-                    photoTransition,
-                    role,
-                    transitionProgress,
-                  );
+                ? {
+                    opacity: blendActivation,
+                    transform: "none" as string | undefined,
+                    clipPath: undefined as string | undefined,
+                  }
+                : getTransitionStyle(photoTransition, role, transitionProgress);
               if ("hidden" in style && style.hidden) return null;
               return (
                 <div
@@ -1014,10 +1245,7 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
               width: "100%",
               height: "100%",
               backgroundColor: "black",
-              opacity: Math.max(
-                0,
-                1 - Math.abs(transitionProgress - 0.5) * 2,
-              ),
+              opacity: Math.max(0, 1 - Math.abs(transitionProgress - 0.5) * 2),
               zIndex: 100,
               pointerEvents: "none",
             }}
@@ -1041,7 +1269,9 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       >
         <TileMapBackground
           viewport={viewport}
-          style={provider === "ocean-composite" ? "ocean-composite" : "satellite"}
+          style={
+            provider === "ocean-composite" ? "ocean-composite" : "satellite"
+          }
         />
         {hasProvider2 && viewport2 && (
           <div
@@ -1056,57 +1286,75 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
           >
             <TileMapBackground
               viewport={viewport2}
-              style={provider2 === "ocean-composite" ? "ocean-composite" : "satellite"}
+              style={
+                provider2 === "ocean-composite"
+                  ? "ocean-composite"
+                  : "satellite"
+              }
             />
           </div>
         )}
       </div>
 
       {/* Map tiles — end provider era (crossfade on top) */}
-      {hasTileTransition && viewportEnd && (() => {
-        const startF = (tileTransitionStart / 100) * durationInFrames;
-        const endF = (tileTransitionEnd / 100) * durationInFrames;
-        const endOpacity = endF > startF
-          ? interpolate(frame, [startF, endF], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-          : 0;
-        if (endOpacity <= 0) return null;
-        return (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              isolation: "isolate",
-              opacity: endOpacity,
-              mixBlendMode: mapBlendMode,
-            }}
-          >
-            <TileMapBackground
-              viewport={viewportEnd}
-              style={providerEnd === "ocean-composite" ? "ocean-composite" : "satellite"}
-            />
-            {hasProviderEnd2 && viewportEnd2 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  mixBlendMode: providerEnd2BlendMode,
-                }}
-              >
-                <TileMapBackground
-                  viewport={viewportEnd2}
-                  style={providerEnd2 === "ocean-composite" ? "ocean-composite" : "satellite"}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {hasTileTransition &&
+        viewportEnd &&
+        (() => {
+          const startF = (tileTransitionStart / 100) * durationInFrames;
+          const endF = (tileTransitionEnd / 100) * durationInFrames;
+          const endOpacity =
+            endF > startF
+              ? interpolate(frame, [startF, endF], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                })
+              : 0;
+          if (endOpacity <= 0) return null;
+          return (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                isolation: "isolate",
+                opacity: endOpacity,
+                mixBlendMode: mapBlendMode,
+              }}
+            >
+              <TileMapBackground
+                viewport={viewportEnd}
+                style={
+                  providerEnd === "ocean-composite"
+                    ? "ocean-composite"
+                    : "satellite"
+                }
+              />
+              {hasProviderEnd2 && viewportEnd2 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    mixBlendMode: providerEnd2BlendMode,
+                  }}
+                >
+                  <TileMapBackground
+                    viewport={viewportEnd2}
+                    style={
+                      providerEnd2 === "ocean-composite"
+                        ? "ocean-composite"
+                        : "satellite"
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       {/* SVG route overlay */}
       <svg
@@ -1117,21 +1365,50 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       >
         <defs>
           {routeShadow > 0 && (
-            <filter id="indy-route-shadow" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation={12 * (routeShadow / 100)} />
+            <filter
+              id="indy-route-shadow"
+              x="-100%"
+              y="-100%"
+              width="300%"
+              height="300%"
+            >
+              <feGaussianBlur
+                in="SourceGraphic"
+                stdDeviation={12 * (routeShadow / 100)}
+              />
             </filter>
           )}
           {routeGlow > 0 && (
             <>
-              <filter id="indy-route-glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation={8 * (routeGlow / 100)} result="blur" />
+              <filter
+                id="indy-route-glow"
+                x="-50%"
+                y="-50%"
+                width="200%"
+                height="200%"
+              >
+                <feGaussianBlur
+                  in="SourceGraphic"
+                  stdDeviation={8 * (routeGlow / 100)}
+                  result="blur"
+                />
                 <feMerge>
                   <feMergeNode in="blur" />
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
-              <filter id="indy-runner-glow" x="-200%" y="-200%" width="500%" height="500%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation={12 * (routeGlow / 100)} result="blur" />
+              <filter
+                id="indy-runner-glow"
+                x="-200%"
+                y="-200%"
+                width="500%"
+                height="500%"
+              >
+                <feGaussianBlur
+                  in="SourceGraphic"
+                  stdDeviation={12 * (routeGlow / 100)}
+                  result="blur"
+                />
                 <feMerge>
                   <feMergeNode in="blur" />
                   <feMergeNode in="blur" />
@@ -1144,38 +1421,65 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
 
         {/* Route shadow */}
         {routeShadow > 0 && (
-          <path d={svgPath} fill="none"
+          <path
+            d={svgPath}
+            fill="none"
             stroke={`rgba(0,0,0,${0.5 * (routeShadow / 100)})`}
             strokeWidth={routeWidth + 20 * (routeShadow / 100)}
-            strokeLinecap="round" strokeLinejoin="round"
-            strokeDasharray={pathLength} strokeDashoffset={dashOffset}
-            filter="url(#indy-route-shadow)" />
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={pathLength}
+            strokeDashoffset={dashOffset}
+            filter="url(#indy-route-shadow)"
+          />
         )}
 
         {/* Route casing */}
         {routeCasing > 0 && (
-          <path d={svgPath} fill="none"
+          <path
+            d={svgPath}
+            fill="none"
             stroke={`rgba(0,0,0,${0.6 * (routeCasing / 100)})`}
             strokeWidth={routeWidth + 6 * (routeCasing / 100)}
-            strokeLinecap="round" strokeLinejoin="round"
-            strokeDasharray={pathLength} strokeDashoffset={dashOffset} />
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={pathLength}
+            strokeDashoffset={dashOffset}
+          />
         )}
 
         {/* Route line */}
-        <path d={svgPath} fill="none"
-          stroke={routeColor} strokeWidth={routeWidth}
-          strokeLinecap="round" strokeLinejoin="round"
-          strokeDasharray={pathLength} strokeDashoffset={dashOffset}
-          filter={routeGlow > 0 ? "url(#indy-route-glow)" : undefined} />
+        <path
+          d={svgPath}
+          fill="none"
+          stroke={routeColor}
+          strokeWidth={routeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={pathLength}
+          strokeDashoffset={dashOffset}
+          filter={routeGlow > 0 ? "url(#indy-route-glow)" : undefined}
+        />
 
         {/* Runner dot */}
         {easedDraw > 0 && dotSize > 0 && (
           <>
-            <circle cx={currentPoint.x} cy={currentPoint.y}
-              r={32 * ds} fill={routeColor} opacity={glowPulse}
-              filter={routeGlow > 0 ? "url(#indy-runner-glow)" : undefined} />
-            <circle cx={currentPoint.x} cy={currentPoint.y}
-              r={15 * ds} fill="#ffffff" stroke={routeColor} strokeWidth={6 * ds} />
+            <circle
+              cx={currentPoint.x}
+              cy={currentPoint.y}
+              r={32 * ds}
+              fill={routeColor}
+              opacity={glowPulse}
+              filter={routeGlow > 0 ? "url(#indy-runner-glow)" : undefined}
+            />
+            <circle
+              cx={currentPoint.x}
+              cy={currentPoint.y}
+              r={15 * ds}
+              fill="#ffffff"
+              stroke={routeColor}
+              strokeWidth={6 * ds}
+            />
           </>
         )}
       </svg>
@@ -1183,11 +1487,17 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       {/* Photos pinned to map — only for pinned styles; backdrop style
           renders photos full-screen behind the map instead. */}
       {!isBackdrop && photoList.length > 0 && (
-        <div style={{
-          position: "absolute", top: 0, left: 0,
-          width: width, height: height,
-          pointerEvents: "none", zIndex: 2,
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: width,
+            height: height,
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        >
           {photoList.map((photo, i) => {
             if (i >= photoPixels.length) return null;
             const px = photoPixels[i];
@@ -1199,8 +1509,12 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
 
             // Reveal animation
             // Reveal speed: 100 = default, 50 = 2x slower, 200 = 2x faster
-            const revealWindow = (segmentLengthKm * 0.03) / (photoRevealSpeed / 100);
-            const revealProgress = Math.min(1, (currentKm - triggerKm) / revealWindow);
+            const revealWindow =
+              (segmentLengthKm * 0.03) / (photoRevealSpeed / 100);
+            const revealProgress = Math.min(
+              1,
+              (currentKm - triggerKm) / revealWindow,
+            );
             let opacity = 1;
             let scale = 1;
             let translateY = 0;
@@ -1209,7 +1523,8 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
               opacity = revealProgress;
             } else if (photoReveal === "drop") {
               const t = revealProgress;
-              scale = t < 0.5 ? 0.8 + 0.4 * (t / 0.5) : 1.2 - 0.2 * ((t - 0.5) / 0.5);
+              scale =
+                t < 0.5 ? 0.8 + 0.4 * (t / 0.5) : 1.2 - 0.2 * ((t - 0.5) / 0.5);
               translateY = (1 - t) * -60;
               opacity = Math.min(1, t * 3);
             }
@@ -1230,7 +1545,8 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
                   height: sizePx * 0.67,
                   transform: `translate(-50%, -50%) rotate(${displayRotation}deg) scale(${scale}) translateY(${translateY}px)`,
                   opacity,
-                  boxShadow: "0 8px 40px rgba(0,0,0,0.7), 0 3px 10px rgba(0,0,0,0.4)",
+                  boxShadow:
+                    "0 8px 40px rgba(0,0,0,0.7), 0 3px 10px rgba(0,0,0,0.4)",
                   border: "3px solid rgba(255,255,255,0.2)",
                   overflow: "hidden",
                 }}
@@ -1240,7 +1556,11 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
                     A plain <img> caused frames to occasionally capture the
                     photo mid-decode, making it flicker through the fade-in. */}
                 <Img
-                  src={staticFile(photosFolder ? `${photosFolder}/${photo.filename}` : photo.filename)}
+                  src={staticFile(
+                    photosFolder
+                      ? `${photosFolder}/${photo.filename}`
+                      : photo.filename,
+                  )}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -1255,36 +1575,62 @@ export const IndyTracker: React.FC<IndyTrackerProps> = (props) => {
       )}
 
       {/* Vignette */}
-      <div style={{
-        position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-        background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
-        pointerEvents: "none", zIndex: 5,
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background:
+            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)",
+          pointerEvents: "none",
+          zIndex: 5,
+        }}
+      />
 
       {/* HUD */}
       {(showDistance || showElevation) && (
-        <div style={{
-          position: "absolute", bottom: 80, left: 80,
-          display: "flex", flexDirection: "column", gap: 16, zIndex: 10,
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 80,
+            left: 80,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            zIndex: 10,
+          }}
+        >
           {showDistance && (
-            <div style={{
-              fontFamily: "'Courier New', Courier, monospace",
-              fontSize: 120, fontWeight: 700, color: "white",
-              textShadow: "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
-              lineHeight: 1,
-            }}>
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 120,
+                fontWeight: 700,
+                color: "white",
+                textShadow:
+                  "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+                lineHeight: 1,
+              }}
+            >
               {distanceLabel || "↔"} {currentDistanceKm.toFixed(1)} km
             </div>
           )}
           {showElevation && (
-            <div style={{
-              fontFamily: "'Courier New', Courier, monospace",
-              fontSize: 72, fontWeight: 500, color: "rgba(255,255,255,0.85)",
-              textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
-              lineHeight: 1,
-            }}>
-              {elevationLabel || "↑"} {Math.round(cumulativeElevGain).toLocaleString()} m
+            <div
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: 72,
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.85)",
+                textShadow:
+                  "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+                lineHeight: 1,
+              }}
+            >
+              {elevationLabel || "↑"}{" "}
+              {Math.round(cumulativeElevGain).toLocaleString()} m
             </div>
           )}
         </div>

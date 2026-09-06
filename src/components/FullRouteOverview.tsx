@@ -29,8 +29,12 @@ import meta from "../data/full-route-overview-meta.json";
 
 export const fullRouteOverviewSchema = z.object({
   showHud: z.boolean().describe("Show the distance + elevation gain counters"),
-  showPeaks: z.boolean().describe("Label the five named summits along the route"),
-  grayscale: z.boolean().describe("Desaturate the terrain (the route line stays coloured)"),
+  showPeaks: z
+    .boolean()
+    .describe("Label the five named summits along the route"),
+  grayscale: z
+    .boolean()
+    .describe("Desaturate the terrain (the route line stays coloured)"),
   routeColor: z.string().describe("Route line and runner dot color"),
 });
 
@@ -47,11 +51,41 @@ const ELEV_GAIN_SCALE = 2889 / 2853;
 
 /** Named summits labelled along the route (showPeaks), in km order. */
 const PEAKS = [
-  { en: "Devil's Peak", zh: "魔鬼山", km: 7.06, elev: 214, labelSide: "right" as const },
-  { en: "Mount Butler", zh: "畢拿山", km: 15.96, elev: 419, labelSide: "left" as const },
-  { en: "The Twins", zh: "孖崗山", km: 23.81, elev: 377, labelSide: "right" as const },
-  { en: "Mount Nicholson", zh: "聶高信山", km: 32.80, elev: 417, labelSide: "left" as const },
-  { en: "Beacon Hill", zh: "筆架山", km: 50.49, elev: 440, labelSide: "right" as const },
+  {
+    en: "Devil's Peak",
+    zh: "魔鬼山",
+    km: 7.06,
+    elev: 214,
+    labelSide: "right" as const,
+  },
+  {
+    en: "Mount Butler",
+    zh: "畢拿山",
+    km: 15.96,
+    elev: 419,
+    labelSide: "left" as const,
+  },
+  {
+    en: "The Twins",
+    zh: "孖崗山",
+    km: 23.81,
+    elev: 377,
+    labelSide: "right" as const,
+  },
+  {
+    en: "Mount Nicholson",
+    zh: "聶高信山",
+    km: 32.8,
+    elev: 417,
+    labelSide: "left" as const,
+  },
+  {
+    en: "Beacon Hill",
+    zh: "筆架山",
+    km: 50.49,
+    elev: 440,
+    labelSide: "right" as const,
+  },
 ];
 
 export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
@@ -210,9 +244,10 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
   const glowPulse = 0.4 + 0.3 * Math.sin((frame / fps) * Math.PI * 2);
 
   // During logo phase, subtle pulse on the route line
-  const logoPulse = progress > holdEnd
-    ? 0.85 + 0.15 * Math.sin((frame / fps) * Math.PI * 1.5)
-    : 1;
+  const logoPulse =
+    progress > holdEnd
+      ? 0.85 + 0.15 * Math.sin((frame / fps) * Math.PI * 1.5)
+      : 1;
 
   // Show runner dot only during draw phase
   const showRunner = drawProgress > 0 && drawProgress < 1;
@@ -227,10 +262,14 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
     const pts = m.segmentPoints;
     const totalLen = dists[dists.length - 1];
     return PEAKS.map((peak) => {
-      let bestIdx = 0, bestDiff = Infinity;
+      let bestIdx = 0,
+        bestDiff = Infinity;
       for (let i = 0; i < dists.length; i++) {
         const diff = Math.abs(dists[i] - peak.km);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestIdx = i;
+        }
       }
       return {
         ...peak,
@@ -275,15 +314,29 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
       >
         <defs>
           <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation={glowIntensity} result="blur" />
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation={glowIntensity}
+              result="blur"
+            />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
 
-          <filter id="overview-runner-glow" x="-200%" y="-200%" width="500%" height="500%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur" />
+          <filter
+            id="overview-runner-glow"
+            x="-200%"
+            y="-200%"
+            width="500%"
+            height="500%"
+          >
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation="12"
+              result="blur"
+            />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="blur" />
@@ -341,86 +394,98 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
 
         {/* Peak markers — revealed as the line reaches them, and fading out
             with the terrain in the last 20% (peakOpacity folds in mapOpacity) */}
-        {showPeaks && peakPositions.map((peak, i) => {
-          const appeared = drawProgress >= peak.drawFraction;
-          if (!appeared) return null;
+        {showPeaks &&
+          peakPositions.map((peak, i) => {
+            const appeared = drawProgress >= peak.drawFraction;
+            if (!appeared) return null;
 
-          const fadeIn = Math.min(1, (drawProgress - peak.drawFraction) / 0.03);
-          const peakOpacity = fadeIn * mapOpacity;
-          if (peakOpacity <= 0) return null;
+            const fadeIn = Math.min(
+              1,
+              (drawProgress - peak.drawFraction) / 0.03,
+            );
+            const peakOpacity = fadeIn * mapOpacity;
+            if (peakOpacity <= 0) return null;
 
-          const offset = 40;
-          const labelX = peak.labelSide === "right" ? peak.x + offset : peak.x - offset;
-          const anchor = peak.labelSide === "right" ? "start" : "end";
+            const offset = 40;
+            const labelX =
+              peak.labelSide === "right" ? peak.x + offset : peak.x - offset;
+            const anchor = peak.labelSide === "right" ? "start" : "end";
 
-          return (
-            <g key={i} opacity={peakOpacity}>
-              {/* Marker triangle */}
-              <polygon
-                points={`${peak.x},${peak.y - 24} ${peak.x - 10},${peak.y - 6} ${peak.x + 10},${peak.y - 6}`}
-                fill="white"
-                stroke="rgba(0,0,0,0.5)"
-                strokeWidth={2}
-              />
-              {/* Peak dot */}
-              <circle cx={peak.x} cy={peak.y} r={5} fill="white" stroke="rgba(0,0,0,0.4)" strokeWidth={1.5} />
-              {/* Chinese name — stroke background */}
-              <text
-                x={labelX}
-                y={peak.y - 16}
-                textAnchor={anchor}
-                fill="black"
-                stroke="rgba(0,0,0,0.8)"
-                strokeWidth={8}
-                paintOrder="stroke"
-                fontSize={32}
-                fontFamily="'Courier New', Courier, monospace"
-                fontWeight={700}
-              >
-                {peak.zh}
-              </text>
-              {/* Chinese name — fill */}
-              <text
-                x={labelX}
-                y={peak.y - 16}
-                textAnchor={anchor}
-                fill="white"
-                fontSize={32}
-                fontFamily="'Courier New', Courier, monospace"
-                fontWeight={700}
-              >
-                {peak.zh}
-              </text>
-              {/* English name + elevation — stroke background */}
-              <text
-                x={labelX}
-                y={peak.y + 12}
-                textAnchor={anchor}
-                fill="black"
-                stroke="rgba(0,0,0,0.8)"
-                strokeWidth={6}
-                paintOrder="stroke"
-                fontSize={20}
-                fontFamily="'Courier New', Courier, monospace"
-                fontWeight={500}
-              >
-                {peak.en} ({peak.elev}m)
-              </text>
-              {/* English name + elevation — fill */}
-              <text
-                x={labelX}
-                y={peak.y + 12}
-                textAnchor={anchor}
-                fill="rgba(255,255,255,0.85)"
-                fontSize={20}
-                fontFamily="'Courier New', Courier, monospace"
-                fontWeight={500}
-              >
-                {peak.en} ({peak.elev}m)
-              </text>
-            </g>
-          );
-        })}
+            return (
+              <g key={i} opacity={peakOpacity}>
+                {/* Marker triangle */}
+                <polygon
+                  points={`${peak.x},${peak.y - 24} ${peak.x - 10},${peak.y - 6} ${peak.x + 10},${peak.y - 6}`}
+                  fill="white"
+                  stroke="rgba(0,0,0,0.5)"
+                  strokeWidth={2}
+                />
+                {/* Peak dot */}
+                <circle
+                  cx={peak.x}
+                  cy={peak.y}
+                  r={5}
+                  fill="white"
+                  stroke="rgba(0,0,0,0.4)"
+                  strokeWidth={1.5}
+                />
+                {/* Chinese name — stroke background */}
+                <text
+                  x={labelX}
+                  y={peak.y - 16}
+                  textAnchor={anchor}
+                  fill="black"
+                  stroke="rgba(0,0,0,0.8)"
+                  strokeWidth={8}
+                  paintOrder="stroke"
+                  fontSize={32}
+                  fontFamily="'Courier New', Courier, monospace"
+                  fontWeight={700}
+                >
+                  {peak.zh}
+                </text>
+                {/* Chinese name — fill */}
+                <text
+                  x={labelX}
+                  y={peak.y - 16}
+                  textAnchor={anchor}
+                  fill="white"
+                  fontSize={32}
+                  fontFamily="'Courier New', Courier, monospace"
+                  fontWeight={700}
+                >
+                  {peak.zh}
+                </text>
+                {/* English name + elevation — stroke background */}
+                <text
+                  x={labelX}
+                  y={peak.y + 12}
+                  textAnchor={anchor}
+                  fill="black"
+                  stroke="rgba(0,0,0,0.8)"
+                  strokeWidth={6}
+                  paintOrder="stroke"
+                  fontSize={20}
+                  fontFamily="'Courier New', Courier, monospace"
+                  fontWeight={500}
+                >
+                  {peak.en} ({peak.elev}m)
+                </text>
+                {/* English name + elevation — fill */}
+                <text
+                  x={labelX}
+                  y={peak.y + 12}
+                  textAnchor={anchor}
+                  fill="rgba(255,255,255,0.85)"
+                  fontSize={20}
+                  fontFamily="'Courier New', Courier, monospace"
+                  fontWeight={500}
+                >
+                  {peak.en} ({peak.elev}m)
+                </text>
+              </g>
+            );
+          })}
       </svg>
 
       {/* Vignette */}
@@ -457,7 +522,8 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
               fontSize: 120,
               fontWeight: 700,
               color: "white",
-              textShadow: "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
+              textShadow:
+                "0 3px 20px rgba(0,0,0,0.95), 0 0px 6px rgba(0,0,0,0.6)",
               lineHeight: 1,
             }}
           >
@@ -469,7 +535,8 @@ export const FullRouteOverview: React.FC<FullRouteOverviewProps> = ({
               fontSize: 72,
               fontWeight: 500,
               color: "rgba(255,255,255,0.85)",
-              textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+              textShadow:
+                "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
               lineHeight: 1,
             }}
           >

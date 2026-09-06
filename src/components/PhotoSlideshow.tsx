@@ -19,27 +19,35 @@ import { seededRandom } from "../lib/seeded-random";
 export const photoSlideshowSchema = z.object({
   photos: z
     .string()
-    .describe("Comma-separated photo paths (relative to public/, or just filenames if photosFolder is set)"),
+    .describe(
+      "Comma-separated photo paths (relative to public/, or just filenames if photosFolder is set)",
+    ),
   photosFolder: z
     .string()
-    .describe("Subfolder in public/ (leave empty if photos contains full paths)"),
-  style: z.enum([
-    "ken-burns",
-    "mosaic",
-    "photo-prints",
-    "film-strip",
-    "parallax",
-    "editorial-grid",
-    "slide-push",
-    "zoom-through-black",
-  ]).describe("Layout style"),
-  transitionType: z.enum([
-    "crossfade",
-    "blur-gaussian",
-    "blur-radial",
-    "blur-zoom",
-    "fade-through-black",
-  ]).describe("Transition effect between photos"),
+    .describe(
+      "Subfolder in public/ (leave empty if photos contains full paths)",
+    ),
+  style: z
+    .enum([
+      "ken-burns",
+      "mosaic",
+      "photo-prints",
+      "film-strip",
+      "parallax",
+      "editorial-grid",
+      "slide-push",
+      "zoom-through-black",
+    ])
+    .describe("Layout style"),
+  transitionType: z
+    .enum([
+      "crossfade",
+      "blur-gaussian",
+      "blur-radial",
+      "blur-zoom",
+      "fade-through-black",
+    ])
+    .describe("Transition effect between photos"),
   transitionDurationFrames: z
     .number()
     .min(3)
@@ -54,7 +62,9 @@ export const photoSlideshowSchema = z.object({
     .number()
     .min(0.5)
     .max(10)
-    .describe("How long each photo is visible (seconds, used by non-mosaic styles)"),
+    .describe(
+      "How long each photo is visible (seconds, used by non-mosaic styles)",
+    ),
   backgroundColor: z.string().describe("Background color (hex)"),
   borderStyle: z
     .enum(["none", "thin-white", "polaroid", "shadow"])
@@ -122,7 +132,12 @@ function resolvePhotoSrc(photo: string, folder: string): string {
 // Transition helper — computes opacity + CSS filter for any transition type
 // ---------------------------------------------------------------------------
 
-type TransitionType = "crossfade" | "blur-gaussian" | "blur-radial" | "blur-zoom" | "fade-through-black";
+type TransitionType =
+  | "crossfade"
+  | "blur-gaussian"
+  | "blur-radial"
+  | "blur-zoom"
+  | "fade-through-black";
 
 interface TransitionResult {
   opacity: number;
@@ -138,16 +153,30 @@ function computeTransition(params: {
   isFirst: boolean;
   isLast: boolean;
 }): TransitionResult {
-  const { frame, startFrame, endFrame, transitionFrames, transitionType, isFirst, isLast } = params;
+  const {
+    frame,
+    startFrame,
+    endFrame,
+    transitionFrames,
+    transitionType,
+    isFirst,
+    isLast,
+  } = params;
 
   let opacity = 1;
   let filter = "";
 
   // Enter transition
   if (!isFirst && frame < startFrame + transitionFrames) {
-    const t = interpolate(frame, [startFrame, startFrame + transitionFrames], [0, 1], {
-      extrapolateLeft: "clamp", extrapolateRight: "clamp",
-    });
+    const t = interpolate(
+      frame,
+      [startFrame, startFrame + transitionFrames],
+      [0, 1],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      },
+    );
 
     switch (transitionType) {
       case "blur-gaussian":
@@ -175,9 +204,15 @@ function computeTransition(params: {
 
   // Exit transition
   if (!isLast && frame > endFrame - transitionFrames) {
-    const t = interpolate(frame, [endFrame - transitionFrames, endFrame], [0, 1], {
-      extrapolateLeft: "clamp", extrapolateRight: "clamp",
-    });
+    const t = interpolate(
+      frame,
+      [endFrame - transitionFrames, endFrame],
+      [0, 1],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      },
+    );
 
     switch (transitionType) {
       case "blur-gaussian":
@@ -253,7 +288,8 @@ function PhotoWithBorder({
   };
 
   const bs = borderStyles[borderStyle] || {};
-  const needsPadding = borderStyle === "polaroid" || borderStyle === "thin-white";
+  const needsPadding =
+    borderStyle === "polaroid" || borderStyle === "thin-white";
 
   return (
     <div
@@ -303,17 +339,28 @@ function RenderKenBurns({
       {photoFiles.map((photo, i) => {
         const startFrame = i * pd;
         const endFrame = startFrame + pd;
-        if (frame < startFrame - transitionFrames || frame > endFrame + transitionFrames) return null;
+        if (
+          frame < startFrame - transitionFrames ||
+          frame > endFrame + transitionFrames
+        )
+          return null;
 
         const kb = KB_PRESETS[i % KB_PRESETS.length];
         const intensity = zoomIntensity / 0.15;
 
-        const localProgress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
+        const localProgress = interpolate(
+          frame,
+          [startFrame, endFrame],
+          [0, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
 
-        const zoomIn = zoomDirection === "in" || (zoomDirection === "alternate" && i % 2 === 0);
+        const zoomIn =
+          zoomDirection === "in" ||
+          (zoomDirection === "alternate" && i % 2 === 0);
         const baseScale = 1 + zoomIntensity;
         const scaleFrom = zoomIn ? 1 : baseScale;
         const scaleTo = zoomIn ? baseScale : 1;
@@ -323,19 +370,33 @@ function RenderKenBurns({
         // in-bounds at every frame and prevents mid-animation direction reversal.
         const maxPanStart = ((scaleFrom - 1) / scaleFrom) * 50;
         const maxPanEnd = ((scaleTo - 1) / scaleTo) * 50;
-        const clamp = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
-        const tx = interpolate(localProgress, [0, 1], [
-          clamp(kb.xFrom * intensity, maxPanStart),
-          clamp(kb.xTo * intensity, maxPanEnd),
-        ]);
-        const ty = interpolate(localProgress, [0, 1], [
-          clamp(kb.yFrom * intensity, maxPanStart),
-          clamp(kb.yTo * intensity, maxPanEnd),
-        ]);
+        const clamp = (v: number, lim: number) =>
+          Math.max(-lim, Math.min(lim, v));
+        const tx = interpolate(
+          localProgress,
+          [0, 1],
+          [
+            clamp(kb.xFrom * intensity, maxPanStart),
+            clamp(kb.xTo * intensity, maxPanEnd),
+          ],
+        );
+        const ty = interpolate(
+          localProgress,
+          [0, 1],
+          [
+            clamp(kb.yFrom * intensity, maxPanStart),
+            clamp(kb.yTo * intensity, maxPanEnd),
+          ],
+        );
 
         const { opacity, filter } = computeTransition({
-          frame, startFrame, endFrame, transitionFrames, transitionType,
-          isFirst: i === 0, isLast: i === photoFiles.length - 1,
+          frame,
+          startFrame,
+          endFrame,
+          transitionFrames,
+          transitionType,
+          isFirst: i === 0,
+          isLast: i === photoFiles.length - 1,
         });
 
         return (
@@ -373,7 +434,7 @@ type MosaicBatch = {
 
 function buildMosaicBatches(
   photoFiles: string[],
-  orientations: ("portrait" | "landscape")[]
+  orientations: ("portrait" | "landscape")[],
 ): MosaicBatch[] {
   const batches: MosaicBatch[] = [];
   let i = 0;
@@ -455,29 +516,29 @@ function RenderMosaic({
     ("portrait" | "landscape")[]
   >(() => photoFiles.map(() => "landscape")); // default
 
-  const handle = React.useMemo(
-    () => {
-      try {
-        // delayRender may not be available in all contexts
-        const { delayRender } = require("remotion");
-        return delayRender("Detecting photo orientations");
-      } catch {
-        return null;
-      }
-    },
-    []
-  );
+  const handle = React.useMemo(() => {
+    try {
+      // delayRender may not be available in all contexts
+      const { delayRender } = require("remotion");
+      return delayRender("Detecting photo orientations");
+    } catch {
+      return null;
+    }
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
-    const results: ("portrait" | "landscape")[] = new Array(photoFiles.length).fill("landscape");
+    const results: ("portrait" | "landscape")[] = new Array(
+      photoFiles.length,
+    ).fill("landscape");
     let loaded = 0;
 
     photoFiles.forEach((photo, i) => {
       const img = new Image();
       img.onload = () => {
         if (cancelled) return;
-        results[i] = img.naturalHeight > img.naturalWidth ? "portrait" : "landscape";
+        results[i] =
+          img.naturalHeight > img.naturalWidth ? "portrait" : "landscape";
         loaded++;
         if (loaded === photoFiles.length) {
           setOrientations([...results]);
@@ -505,12 +566,14 @@ function RenderMosaic({
       img.src = resolvePhotoSrc(photo, folder);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [photoFiles.join(","), folder]);
 
   const batches = React.useMemo(
     () => buildMosaicBatches(photoFiles, orientations),
-    [photoFiles, orientations]
+    [photoFiles, orientations],
   );
 
   // Distribute time equally across batches
@@ -520,7 +583,7 @@ function RenderMosaic({
   const batchDuration = durationInFrames / batches.length;
   const currentBatchIdx = Math.min(
     Math.floor(frame / batchDuration),
-    batches.length - 1
+    batches.length - 1,
   );
   const batchStart = currentBatchIdx * batchDuration;
   const batchFrame = frame - batchStart;
@@ -537,10 +600,15 @@ function RenderMosaic({
       config: { damping: 20, stiffness: 100, mass: 0.9 },
     });
     // zoomIntensity is already 0-0.5 (divided by 100 in main component). Default 0.15.
-    const holdScale = interpolate(batchFrame, [0, batchDuration], [1 + 0.13 * zoomIntensity, 1 + 0.53 * zoomIntensity], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
+    const holdScale = interpolate(
+      batchFrame,
+      [0, batchDuration],
+      [1 + 0.13 * zoomIntensity, 1 + 0.53 * zoomIntensity],
+      {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      },
+    );
     const slideY = interpolate(revealProgress, [0, 1], [30, 0]);
 
     // Exit fade near end of batch (not for last batch)
@@ -550,7 +618,7 @@ function RenderMosaic({
           batchFrame,
           [batchDuration - transFrames, batchDuration],
           [1, 0],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
 
     return (
@@ -646,7 +714,8 @@ function RenderPhotoPrints({
 
   const totalDuration = durationInFrames;
   const dropPhase = totalDuration * 0.7; // 70% of time for drops
-  const dropInterval = photoFiles.length > 1 ? dropPhase / (photoFiles.length - 1) : dropPhase;
+  const dropInterval =
+    photoFiles.length > 1 ? dropPhase / (photoFiles.length - 1) : dropPhase;
 
   return (
     <AbsoluteFill style={{ backgroundColor: backgroundColor || "#1a1a1a" }}>
@@ -681,8 +750,12 @@ function RenderPhotoPrints({
               transform: `rotate(${p.rotation}deg) scale(${scale})`,
               opacity: dropProgress,
               zIndex: i,
-              boxShadow: "0 12px 60px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4)",
-              border: borderStyle === "polaroid" ? undefined : "3px solid rgba(255,255,255,0.15)",
+              boxShadow:
+                "0 12px 60px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4)",
+              border:
+                borderStyle === "polaroid"
+                  ? undefined
+                  : "3px solid rgba(255,255,255,0.15)",
               ...(borderStyle === "polaroid"
                 ? {
                     padding: "8px 8px 56px 8px",
@@ -690,7 +763,9 @@ function RenderPhotoPrints({
                     border: "none",
                   }
                 : {}),
-              ...(borderStyle === "thin-white" ? { border: "4px solid white" } : {}),
+              ...(borderStyle === "thin-white"
+                ? { border: "4px solid white" }
+                : {}),
             }}
           >
             <Img
@@ -862,13 +937,19 @@ function RenderParallax({
         const endFrame = startFrame + pd;
         if (frame < startFrame - pd || frame > endFrame + pd) return null;
 
-        const localProgress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
+        const localProgress = interpolate(
+          frame,
+          [startFrame, endFrame],
+          [0, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
 
         const isCurrent =
-          frame >= startFrame - transitionFrames && frame <= endFrame + transitionFrames;
+          frame >= startFrame - transitionFrames &&
+          frame <= endFrame + transitionFrames;
         const isBackground = !isCurrent;
 
         const speed = isBackground ? bgSpeed : fgSpeed;
@@ -876,8 +957,13 @@ function RenderParallax({
         const scale = isBackground ? 1.05 : 1.15;
 
         const trans = computeTransition({
-          frame, startFrame, endFrame, transitionFrames, transitionType,
-          isFirst: i === 0, isLast: i === photoFiles.length - 1,
+          frame,
+          startFrame,
+          endFrame,
+          transitionFrames,
+          transitionType,
+          isFirst: i === 0,
+          isLast: i === photoFiles.length - 1,
         });
 
         return (
@@ -925,14 +1011,20 @@ function RenderEditorialGrid({
   let gridType = 0;
   while (idx < photoFiles.length) {
     const cols = gridType % 2 === 0 ? 2 : 3;
-    const count = cols === 2 ? Math.min(4, photoFiles.length - idx) : Math.min(3, photoFiles.length - idx);
+    const count =
+      cols === 2
+        ? Math.min(4, photoFiles.length - idx)
+        : Math.min(3, photoFiles.length - idx);
     beats.push({ photos: photoFiles.slice(idx, idx + count), cols });
     idx += count;
     gridType++;
   }
 
   const beatDuration = durationInFrames / beats.length;
-  const currentBeatIndex = Math.min(Math.floor(frame / beatDuration), beats.length - 1);
+  const currentBeatIndex = Math.min(
+    Math.floor(frame / beatDuration),
+    beats.length - 1,
+  );
   const beatStart = currentBeatIndex * beatDuration;
   const beatFrame = frame - beatStart;
   const beat = beats[currentBeatIndex];
@@ -964,19 +1056,30 @@ function RenderEditorialGrid({
           });
 
           // Exit: all cells clip out together
-          const exitProgress = interpolate(beatFrame, [beatDuration - 10, beatDuration], [0, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
+          const exitProgress = interpolate(
+            beatFrame,
+            [beatDuration - 10, beatDuration],
+            [0, 1],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            },
+          );
 
           const clipTop = interpolate(revealProgress, [0, 1], [100, 0]);
-          const clipBottom = exitProgress > 0 ? interpolate(exitProgress, [0, 1], [0, 100]) : 0;
+          const clipBottom =
+            exitProgress > 0 ? interpolate(exitProgress, [0, 1], [0, 100]) : 0;
 
           // Subtle zoom during hold
-          const holdScale = interpolate(beatFrame, [0, beatDuration], [1.05, 1.1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
+          const holdScale = interpolate(
+            beatFrame,
+            [0, beatDuration],
+            [1.05, 1.1],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            },
+          );
 
           return (
             <div
@@ -1027,25 +1130,39 @@ function RenderSlidePush({
       {photoFiles.map((photo, i) => {
         const startFrame = i * pd;
         const endFrame = startFrame + pd;
-        if (frame < startFrame - transitionFrames || frame > endFrame + transitionFrames) return null;
+        if (
+          frame < startFrame - transitionFrames ||
+          frame > endFrame + transitionFrames
+        )
+          return null;
 
         // Alternate direction: even=left, odd=right
         const fromRight = i % 2 === 0;
 
         // Enter: slide from offscreen
-        const enterProgress = i === 0 ? 1 : interpolate(
-          frame, [startFrame, startFrame + transitionFrames], [0, 1],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-        );
+        const enterProgress =
+          i === 0
+            ? 1
+            : interpolate(
+                frame,
+                [startFrame, startFrame + transitionFrames],
+                [0, 1],
+                { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+              );
         const enterX = fromRight
           ? interpolate(enterProgress, [0, 1], [100, 0])
           : interpolate(enterProgress, [0, 1], [-100, 0]);
 
         // Exit: push offscreen in opposite direction
-        const exitProgress = (i < photoFiles.length - 1)
-          ? interpolate(frame, [endFrame - transitionFrames, endFrame], [0, 1],
-              { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
-          : 0;
+        const exitProgress =
+          i < photoFiles.length - 1
+            ? interpolate(
+                frame,
+                [endFrame - transitionFrames, endFrame],
+                [0, 1],
+                { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+              )
+            : 0;
         const exitX = fromRight
           ? interpolate(exitProgress, [0, 1], [0, -100])
           : interpolate(exitProgress, [0, 1], [0, 100]);
@@ -1053,12 +1170,24 @@ function RenderSlidePush({
         const tx = enterProgress < 1 ? enterX : exitX;
 
         // Subtle zoom during hold
-        const holdProgress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-          extrapolateLeft: "clamp", extrapolateRight: "clamp",
-        });
-        const scale = interpolate(holdProgress, [0, 1], [zScale, zScale + zoomIntensity * 0.1], {
-          extrapolateLeft: "clamp", extrapolateRight: "clamp",
-        });
+        const holdProgress = interpolate(
+          frame,
+          [startFrame, endFrame],
+          [0, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
+        const scale = interpolate(
+          holdProgress,
+          [0, 1],
+          [zScale, zScale + zoomIntensity * 0.1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
 
         return (
           <AbsoluteFill
@@ -1107,37 +1236,69 @@ function RenderZoomThroughBlack({
       {photoFiles.map((photo, i) => {
         const startFrame = i * pd;
         const endFrame = startFrame + pd;
-        if (frame < startFrame - transitionFrames || frame > endFrame + transitionFrames) return null;
+        if (
+          frame < startFrame - transitionFrames ||
+          frame > endFrame + transitionFrames
+        )
+          return null;
 
-        const localProgress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-          extrapolateLeft: "clamp", extrapolateRight: "clamp",
-        });
+        const localProgress = interpolate(
+          frame,
+          [startFrame, endFrame],
+          [0, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          },
+        );
 
         // Enter: zoom out from very large + fade in
         let opacity = 1;
         let scale = 1 + zoomIntensity * 0.15;
 
         if (i > 0 && frame < startFrame + transitionFrames) {
-          const t = interpolate(frame, [startFrame, startFrame + transitionFrames], [0, 1], {
-            extrapolateLeft: "clamp", extrapolateRight: "clamp",
-          });
+          const t = interpolate(
+            frame,
+            [startFrame, startFrame + transitionFrames],
+            [0, 1],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            },
+          );
           opacity = t;
-          scale = interpolate(t, [0, 1], [3 + zoomIntensity * 2, 1 + zoomIntensity * 0.15]);
+          scale = interpolate(
+            t,
+            [0, 1],
+            [3 + zoomIntensity * 2, 1 + zoomIntensity * 0.15],
+          );
         }
 
         // Exit: zoom in very large + fade out
         if (i < photoFiles.length - 1 && frame > endFrame - transitionFrames) {
-          const t = interpolate(frame, [endFrame - transitionFrames, endFrame], [0, 1], {
-            extrapolateLeft: "clamp", extrapolateRight: "clamp",
-          });
+          const t = interpolate(
+            frame,
+            [endFrame - transitionFrames, endFrame],
+            [0, 1],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            },
+          );
           opacity = 1 - t;
-          scale = interpolate(t, [0, 1], [1 + zoomIntensity * 0.15, 3 + zoomIntensity * 2]);
+          scale = interpolate(
+            t,
+            [0, 1],
+            [1 + zoomIntensity * 0.15, 3 + zoomIntensity * 2],
+          );
         }
 
         // Subtle drift during hold
-        const holdScale = interpolate(localProgress, [0, 1],
+        const holdScale = interpolate(
+          localProgress,
+          [0, 1],
           [scale, scale + zoomIntensity * 0.05],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
 
         return (
@@ -1190,7 +1351,8 @@ export const PhotoSlideshow: React.FC<PhotoSlideshowProps> = (props) => {
   const photoDurationFrames = Math.round(props.photoDurationSeconds * fps);
   // For grouped styles (mosaic, editorial-grid), use all photos since multiple
   // photos are shown per beat. For single-photo styles, cap to fit the duration.
-  const isGroupedStyle = props.style === "mosaic" || props.style === "editorial-grid";
+  const isGroupedStyle =
+    props.style === "mosaic" || props.style === "editorial-grid";
   const maxPhotos = isGroupedStyle
     ? photoFiles.length
     : Math.max(1, Math.floor(durationInFrames / photoDurationFrames));

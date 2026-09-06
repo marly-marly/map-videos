@@ -34,11 +34,11 @@ export interface GpxSegmentState {
 export function useGpxSegment(
   gpxFile: string,
   startKm: number,
-  endKm: number
+  endKm: number,
 ): GpxSegmentState {
   const [gpxData, setGpxData] = useState<string | null>(null);
   const [gpxHandle] = useState(() =>
-    delayRender("Loading GPX file", { timeoutInMilliseconds: 30000 })
+    delayRender("Loading GPX file", { timeoutInMilliseconds: 30000 }),
   );
 
   useEffect(() => {

@@ -65,8 +65,7 @@ export const MapRouteVideo: React.FC<MapRouteVideoProps> = ({
           fontSize: 42,
           fontWeight: 700,
           color: "white",
-          textShadow:
-            "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+          textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
           zIndex: 10,
         }}
       >

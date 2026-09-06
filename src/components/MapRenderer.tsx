@@ -1,9 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  continueRender,
-  delayRender,
-  useCurrentFrame,
-} from "remotion";
+import { continueRender, delayRender, useCurrentFrame } from "remotion";
 import maplibregl from "maplibre-gl";
 import { mapStyle } from "../lib/map-style";
 import type { CameraState } from "../hooks/useRouteAnimation";
@@ -27,9 +23,7 @@ export const MapRenderer: React.FC<MapRendererProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const initializedRef = useRef(false);
-  const [handle] = useState(() =>
-    delayRender("Waiting for map to initialize")
-  );
+  const [handle] = useState(() => delayRender("Waiting for map to initialize"));
   const frame = useCurrentFrame();
 
   useEffect(() => {

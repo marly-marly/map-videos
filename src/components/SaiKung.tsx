@@ -9,10 +9,7 @@ export interface SaiKungProps {
 
 const meta = saiKungMeta as unknown as SegmentMeta;
 
-export const SaiKung: React.FC<SaiKungProps> = ({
-  routeColor,
-  routeWidth,
-}) => (
+export const SaiKung: React.FC<SaiKungProps> = ({ routeColor, routeWidth }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
     routeWidth={routeWidth}

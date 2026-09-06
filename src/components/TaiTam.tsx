@@ -9,10 +9,7 @@ export interface TaiTamProps {
 
 const meta = taiTamMeta as unknown as SegmentMeta;
 
-export const TaiTam: React.FC<TaiTamProps> = ({
-  routeColor,
-  routeWidth,
-}) => (
+export const TaiTam: React.FC<TaiTamProps> = ({ routeColor, routeWidth }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
     routeWidth={routeWidth}

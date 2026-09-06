@@ -16,7 +16,7 @@ export type KowloonMongKokProps = {
   showElevation?: boolean;
   distanceLabel?: string;
   elevationLabel?: string;
-}
+};
 
 const meta = kowloonMongKokMeta as unknown as SegmentMeta;
 

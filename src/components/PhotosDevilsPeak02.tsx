@@ -30,7 +30,13 @@ const PHOTOS = [
 
 type Layout = {
   photos: number[];
-  positions: { x: string; y: string; w: string; h: string; from: "left" | "right" | "top" | "bottom" }[];
+  positions: {
+    x: string;
+    y: string;
+    w: string;
+    h: string;
+    from: "left" | "right" | "top" | "bottom";
+  }[];
 };
 
 const LAYOUTS: Layout[] = [
@@ -85,7 +91,7 @@ export const PhotosDevilsPeak02: React.FC = () => {
 
   const currentBeatIndex = Math.min(
     Math.floor(frame / beatDuration),
-    beatCount - 1
+    beatCount - 1,
   );
   const beatStart = currentBeatIndex * beatDuration;
   const beatFrame = frame - beatStart;
@@ -108,7 +114,7 @@ export const PhotosDevilsPeak02: React.FC = () => {
           beatFrame,
           [beatDuration - 8, beatDuration],
           [0, 1],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
 
         const directionMap = {
@@ -125,7 +131,7 @@ export const PhotosDevilsPeak02: React.FC = () => {
           beatFrame,
           [0, beatDuration],
           [1.02, 1.08],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
         );
 
         return (
@@ -160,9 +166,13 @@ export const PhotosDevilsPeak02: React.FC = () => {
           style={{
             pointerEvents: "none",
             opacity: interpolate(
-              spring({ frame: beatFrame - 6, fps, config: { damping: 20, stiffness: 100 } }),
+              spring({
+                frame: beatFrame - 6,
+                fps,
+                config: { damping: 20, stiffness: 100 },
+              }),
               [0, 1],
-              [0, 0.6]
+              [0, 0.6],
             ),
           }}
         >
@@ -227,7 +237,7 @@ export const PhotosDevilsPeak02: React.FC = () => {
 function interpolateTransform(
   slideIn: number,
   exitProgress: number,
-  dir: { enter: string; exit: string }
+  dir: { enter: string; exit: string },
 ): string {
   if (exitProgress > 0) {
     const exitX = dir.exit.includes("translateX")

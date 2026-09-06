@@ -16,7 +16,7 @@ export type SaiKungBingAerialProps = {
   showElevation?: boolean;
   distanceLabel?: string;
   elevationLabel?: string;
-}
+};
 
 const typedMeta = meta as unknown as SegmentMeta;
 

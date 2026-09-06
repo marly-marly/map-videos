@@ -3,12 +3,7 @@
  * Ported from scripts/render-static-map.ts viewport logic.
  */
 import { z } from "zod";
-import {
-  lngToTileX,
-  latToTileY,
-  tileToQuadkey,
-  TILE_SIZE,
-} from "./mercator";
+import { lngToTileX, latToTileY, tileToQuadkey, TILE_SIZE } from "./mercator";
 
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
@@ -78,7 +73,8 @@ const TILE_URLS: Record<string, string> = {
   // --- Outdoor / trails (overlays render partially transparent) -------------
   cyclosm: "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
   "waymarked-hiking": "https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png",
-  "waymarked-cycling": "https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png",
+  "waymarked-cycling":
+    "https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png",
 
   // --- Minimal / artistic ---------------------------------------------------
   cartodark: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
@@ -280,10 +276,7 @@ export const TILE_MAX_ZOOM: Partial<Record<MapProvider, number>> = {
 };
 
 /** Clamp a requested tile zoom to the provider's max. */
-export function clampZoomForProvider(
-  provider: string,
-  zoom: number
-): number {
+export function clampZoomForProvider(provider: string, zoom: number): number {
   const max = TILE_MAX_ZOOM[provider as MapProvider];
   return max != null ? Math.min(zoom, max) : zoom;
 }
@@ -292,7 +285,7 @@ function buildTileUrl(
   provider: string,
   x: number,
   y: number,
-  z: number
+  z: number,
 ): string {
   const template = TILE_URLS[provider] || TILE_URLS.esri;
   return template
@@ -313,7 +306,7 @@ export function computeViewport(
     offsetX?: number;
     offsetY?: number;
     provider?: string;
-  } = {}
+  } = {},
 ): TileViewport {
   const {
     zoom: requestedZoom = 17,
@@ -413,7 +406,9 @@ export function computeViewport(
   // Safety cap: prevent browser crash from too many tiles
   const MAX_TILES = 10000;
   if (tilesX * tilesY > MAX_TILES) {
-    console.warn(`Tile count ${tilesX * tilesY} exceeds limit ${MAX_TILES} — reduce zoom or narrow the segment`);
+    console.warn(
+      `Tile count ${tilesX * tilesY} exceeds limit ${MAX_TILES} — reduce zoom or narrow the segment`,
+    );
     // Trim tiles symmetrically to stay within budget
     while (tilesX * tilesY > MAX_TILES) {
       if (tilesX > tilesY) tilesX--;
@@ -464,7 +459,7 @@ export function computeViewport(
  */
 export function coordsToPixels(
   coords: [number, number][],
-  viewport: TileViewport
+  viewport: TileViewport,
 ): { x: number; y: number }[] {
   const { zoom, tileMinX, tileMinY, cropLeft, cropTop, scale } = viewport;
   return coords.map(([lng, lat]) => {

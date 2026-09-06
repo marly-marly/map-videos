@@ -70,7 +70,7 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
       if (hillZoomDiff === 0) {
         viewport.tiles.forEach((t) => {
           urls.push(
-            `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${viewport.zoom}/${t.y}/${t.x}`
+            `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${viewport.zoom}/${t.y}/${t.x}`,
           );
         });
       } else {
@@ -85,14 +85,14 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
         for (let ty = hMinY; ty <= hMaxY; ty++) {
           for (let tx = hMinX; tx <= hMaxX; tx++) {
             urls.push(
-              `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${hillZoom}/${ty}/${tx}`
+              `https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/${hillZoom}/${ty}/${tx}`,
             );
           }
         }
       }
       viewport.tiles.forEach((t) => {
         urls.push(
-          `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`
+          `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`,
         );
       });
     } else {
@@ -116,7 +116,7 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
     Promise.all(allTileUrls.map((url) => prefetchTile(url, isCancelled))).then(
       () => {
         if (!cancelled) continueRender(handle);
-      }
+      },
     );
     return () => {
       cancelled = true;
@@ -215,7 +215,13 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
       const hMaxY = Math.floor(mainMaxY / hillRatio);
       const hTileSize = 256 * hillRatio;
 
-      const hTiles: { x: number; y: number; pixelLeft: number; pixelTop: number; url: string }[] = [];
+      const hTiles: {
+        x: number;
+        y: number;
+        pixelLeft: number;
+        pixelTop: number;
+        url: string;
+      }[] = [];
       for (let ty = hMinY; ty <= hMaxY; ty++) {
         for (let tx = hMinX; tx <= hMaxX; tx++) {
           hTiles.push({

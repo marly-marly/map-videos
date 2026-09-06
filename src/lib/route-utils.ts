@@ -21,10 +21,10 @@ export interface RouteData {
 
 export function getVisibleRoute(
   routeData: RouteData,
-  currentDistanceKm: number
+  currentDistanceKm: number,
 ): Feature<LineString> {
   const line = turf.lineString(
-    routeData.geometry.coordinates
+    routeData.geometry.coordinates,
   ) as Feature<LineString>;
   if (currentDistanceKm <= 0) {
     return turf.lineString([
@@ -42,12 +42,12 @@ export function getVisibleRoute(
 
 export function getCurrentPosition(
   routeData: RouteData,
-  currentDistanceKm: number
+  currentDistanceKm: number,
 ): [number, number] {
   const line = turf.lineString(routeData.geometry.coordinates);
   const clampedDist = Math.min(
     Math.max(0, currentDistanceKm),
-    routeData.properties.totalDistanceKm
+    routeData.properties.totalDistanceKm,
   );
   const point = turf.along(line, clampedDist, { units: "kilometers" });
   return point.geometry.coordinates as [number, number];
@@ -56,7 +56,7 @@ export function getCurrentPosition(
 export function getSmoothedBearing(
   routeData: RouteData,
   currentDistanceKm: number,
-  windowKm: number = 2.0
+  windowKm: number = 2.0,
 ): number {
   const totalDist = routeData.properties.totalDistanceKm;
   const line = turf.lineString(routeData.geometry.coordinates);
@@ -94,12 +94,12 @@ export function getSmoothedBearing(
 export function getLookaheadPosition(
   routeData: RouteData,
   currentDistanceKm: number,
-  lookaheadKm: number = 0.3
+  lookaheadKm: number = 0.3,
 ): [number, number] {
   const line = turf.lineString(routeData.geometry.coordinates);
   const targetDist = Math.min(
     currentDistanceKm + lookaheadKm,
-    routeData.properties.totalDistanceKm
+    routeData.properties.totalDistanceKm,
   );
   const point = turf.along(line, targetDist, { units: "kilometers" });
   return point.geometry.coordinates as [number, number];
@@ -107,7 +107,7 @@ export function getLookaheadPosition(
 
 export function getCurrentElevation(
   routeData: RouteData,
-  currentDistanceKm: number
+  currentDistanceKm: number,
 ): number {
   const { cumulativeDistances, elevations } = routeData.properties;
 

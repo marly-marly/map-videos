@@ -9,10 +9,7 @@ export interface CentralProps {
 
 const meta = centralMeta as unknown as SegmentMeta;
 
-export const Central: React.FC<CentralProps> = ({
-  routeColor,
-  routeWidth,
-}) => (
+export const Central: React.FC<CentralProps> = ({ routeColor, routeWidth }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
     routeWidth={routeWidth}

@@ -58,8 +58,10 @@ export function processRoute(points: GpxPoint[]): ProcessedRoute {
     tolerance: 0.0001,
     highQuality: true,
   });
-  const simplifiedCoords = simplified.geometry
-    .coordinates as [number, number][];
+  const simplifiedCoords = simplified.geometry.coordinates as [
+    number,
+    number,
+  ][];
 
   // Compute cumulative distances along simplified line.
   // Skip large jumps (ferry rides, GPS pauses).
@@ -72,8 +74,7 @@ export function processRoute(points: GpxPoint[]): ProcessedRoute {
     const addDist = dist > FERRY_THRESHOLD_KM ? 0 : dist;
     cumulativeDistances.push(cumulativeDistances[i - 1] + addDist);
   }
-  const totalDistanceKm =
-    cumulativeDistances[cumulativeDistances.length - 1];
+  const totalDistanceKm = cumulativeDistances[cumulativeDistances.length - 1];
 
   // Map simplified coordinates to nearest elevation values
   const elevations: number[] = simplifiedCoords.map((coord) => {
@@ -109,7 +110,7 @@ export function processRoute(points: GpxPoint[]): ProcessedRoute {
 export function extractSegment(
   route: ProcessedRoute,
   startKm: number,
-  endKm: number
+  endKm: number,
 ): SegmentData {
   const { simplifiedCoords, cumulativeDistances, elevations } = route;
 
@@ -159,7 +160,7 @@ export function extractSegment(
   const rawSegmentCoords = simplifiedCoords.slice(startIdx, endIdx + 1);
   if (rawSegmentCoords.length < 2) {
     throw new Error(
-      `Segment ${startKm}-${endKm}km has too few points (${rawSegmentCoords.length})`
+      `Segment ${startKm}-${endKm}km has too few points (${rawSegmentCoords.length})`,
     );
   }
 
@@ -172,7 +173,7 @@ export function extractSegment(
       const dist = turf.distance(
         turf.point(rawSegmentCoords[i - 1]),
         turf.point(rawSegmentCoords[i]),
-        { units: "kilometers" }
+        { units: "kilometers" },
       );
       if (dist > FERRY_THRESHOLD_KM) {
         ferryRanges.push([cumDist, cumDist + dist]);
@@ -202,7 +203,7 @@ export function extractSegment(
     const prevGeoDist = (i - 1) * RESAMPLE_INTERVAL_KM;
     const midGeoDist = (prevGeoDist + geoDist) / 2;
     const inFerry = ferryRanges.some(
-      ([fStart, fEnd]) => midGeoDist >= fStart && midGeoDist <= fEnd
+      ([fStart, fEnd]) => midGeoDist >= fStart && midGeoDist <= fEnd,
     );
     if (inFerry) {
       // Ferry — distance stays the same
@@ -212,7 +213,7 @@ export function extractSegment(
       const dist = turf.distance(
         turf.point(resampledCoords[i - 1]),
         turf.point(resampledCoords[i]),
-        { units: "kilometers" }
+        { units: "kilometers" },
       );
       segmentDistances.push(segmentDistances[i - 1] + dist);
     }
@@ -267,7 +268,7 @@ export function extractSegment(
  */
 export function getPreviousRouteCoords(
   route: ProcessedRoute,
-  beforeKm: number
+  beforeKm: number,
 ): [number, number][] {
   const { simplifiedCoords, cumulativeDistances } = route;
   let endIdx = 0;

@@ -9,10 +9,7 @@ export interface MongKokProps {
 
 const meta = mongKokMeta as unknown as SegmentMeta;
 
-export const MongKok: React.FC<MongKokProps> = ({
-  routeColor,
-  routeWidth,
-}) => (
+export const MongKok: React.FC<MongKokProps> = ({ routeColor, routeWidth }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
     routeWidth={routeWidth}

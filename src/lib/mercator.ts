@@ -47,7 +47,7 @@ export function lngLatToPixel(
   lat: number,
   zoom: number,
   originTileX: number,
-  originTileY: number
+  originTileY: number,
 ): { x: number; y: number } {
   const globalX = lngToTileX(lng, zoom) * TILE_SIZE;
   const globalY = latToTileY(lat, zoom) * TILE_SIZE;

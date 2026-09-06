@@ -9,10 +9,7 @@ export interface KowloonProps {
 
 const meta = kowloonMeta as unknown as SegmentMeta;
 
-export const Kowloon: React.FC<KowloonProps> = ({
-  routeColor,
-  routeWidth,
-}) => (
+export const Kowloon: React.FC<KowloonProps> = ({ routeColor, routeWidth }) => (
   <RouteSegmentVideo
     routeColor={routeColor}
     routeWidth={routeWidth}

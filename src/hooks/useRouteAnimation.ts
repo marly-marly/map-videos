@@ -51,7 +51,7 @@ export function useRouteAnimation(routeData: RouteData): AnimationState {
     routeData,
     currentDistanceKm,
     currentPosition,
-    routeCenter
+    routeCenter,
   );
 
   return {
@@ -69,7 +69,10 @@ export function useRouteAnimation(routeData: RouteData): AnimationState {
  * Returns a function that gives the camera [lng, lat] at any distance.
  * The result is a very gentle path that ignores small turns entirely.
  */
-let _cachedCameraPath: { coords: [number, number][]; distances: number[] } | null = null;
+let _cachedCameraPath: {
+  coords: [number, number][];
+  distances: number[];
+} | null = null;
 let _cachedRouteId: string | null = null;
 
 function getCameraPosition(
@@ -82,8 +85,14 @@ function getCameraPosition(
     const line = turf.lineString(routeData.geometry.coordinates);
     // Heavy simplification — tolerance ~0.005 degrees ≈ 500m
     // This produces a very smooth path with only the major direction changes
-    const simplified = turf.simplify(line, { tolerance: 0.005, highQuality: true });
-    const simplifiedCoords = simplified.geometry.coordinates as [number, number][];
+    const simplified = turf.simplify(line, {
+      tolerance: 0.005,
+      highQuality: true,
+    });
+    const simplifiedCoords = simplified.geometry.coordinates as [
+      number,
+      number,
+    ][];
 
     // Compute cumulative distances along the simplified path
     const distances: number[] = [0];
@@ -91,7 +100,7 @@ function getCameraPosition(
       const d = turf.distance(
         turf.point(simplifiedCoords[i - 1]),
         turf.point(simplifiedCoords[i]),
-        { units: "kilometers" }
+        { units: "kilometers" },
       );
       distances.push(distances[i - 1] + d);
     }
@@ -105,13 +114,15 @@ function getCameraPosition(
 
   // Map the current route distance to a position on the simplified path
   // Scale proportionally since simplified path may be shorter
-  const scaledDist = (currentDistanceKm / routeData.properties.totalDistanceKm) * totalDist;
+  const scaledDist =
+    (currentDistanceKm / routeData.properties.totalDistanceKm) * totalDist;
   const clampedDist = Math.max(0, Math.min(totalDist, scaledDist));
 
   // Find and interpolate along simplified path
   for (let i = 1; i < distances.length; i++) {
     if (distances[i] >= clampedDist) {
-      const t = (clampedDist - distances[i - 1]) / (distances[i] - distances[i - 1]);
+      const t =
+        (clampedDist - distances[i - 1]) / (distances[i] - distances[i - 1]);
       return [
         coords[i - 1][0] + t * (coords[i][0] - coords[i - 1][0]),
         coords[i - 1][1] + t * (coords[i][1] - coords[i - 1][1]),
@@ -131,14 +142,17 @@ function getCameraBearing(
 ): number {
   // Get two points on the simplified path slightly apart
   const behindKm = Math.max(0, currentDistanceKm - 1.0);
-  const aheadKm = Math.min(routeData.properties.totalDistanceKm, currentDistanceKm + 1.0);
+  const aheadKm = Math.min(
+    routeData.properties.totalDistanceKm,
+    currentDistanceKm + 1.0,
+  );
 
   const p1 = getCameraPosition(routeData, behindKm);
   const p2 = getCameraPosition(routeData, aheadKm);
 
   // If points are too close, return 0
   const dist = Math.sqrt(
-    (p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1])
+    (p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1]),
   );
   if (dist < 0.00001) return 0;
 
@@ -151,7 +165,7 @@ function computeCamera(
   routeData: RouteData,
   currentDistanceKm: number,
   currentPosition: [number, number],
-  routeCenter: [number, number]
+  routeCenter: [number, number],
 ): CameraState {
   const progress = frame / totalFrames;
 
@@ -186,7 +200,8 @@ function computeCamera(
   if (progress < followEnd) {
     // Phase 2: Follow the runner with smooth camera
     // Subtle zoom breathing for cinematic feel — slow sine wave
-    const followProgress = (progress - establishEnd) / (followEnd - establishEnd);
+    const followProgress =
+      (progress - establishEnd) / (followEnd - establishEnd);
     return {
       center: smoothedPos,
       zoom: 15.8,

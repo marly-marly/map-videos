@@ -14,42 +14,47 @@ import * as turf from "@turf/turf";
 // CLI args: npx tsx scripts/render-static-map.ts [startKm] [endKm] [outputName] [offsetX%] [offsetY%] [padding] [--provider=name]
 // offsetX/offsetY shift the viewport as a fraction of its size (e.g. 0.2 = 20% right, -0.1 = 10% left)
 const args = process.argv.slice(2);
-const flagArgs = args.filter(a => a.startsWith('--'));
-const posArgs = args.filter(a => !a.startsWith('--'));
+const flagArgs = args.filter((a) => a.startsWith("--"));
+const posArgs = args.filter((a) => !a.startsWith("--"));
 const SEGMENT_START_KM = posArgs[0] ? parseFloat(posArgs[0]) : 4;
 const SEGMENT_END_KM = posArgs[1] ? parseFloat(posArgs[1]) : 8.5;
 const OUTPUT_NAME = posArgs[2] || "static-map";
 const OFFSET_X = posArgs[3] ? parseFloat(posArgs[3]) : 0; // positive = shift view right
 const OFFSET_Y = posArgs[4] ? parseFloat(posArgs[4]) : 0; // positive = shift view down (negative = up)
 const PADDING_FACTOR = posArgs[5] ? parseFloat(posArgs[5]) : 0.35; // padding around the route segment (default 35%)
-const zoomFlag = flagArgs.find(a => a.startsWith('--zoom='));
-let ZOOM = zoomFlag ? parseInt(zoomFlag.split('=')[1]) : 17;
+const zoomFlag = flagArgs.find((a) => a.startsWith("--zoom="));
+let ZOOM = zoomFlag ? parseInt(zoomFlag.split("=")[1]) : 17;
 const TILE_SIZE = 256;
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
 
 // Tile providers
-const providerFlag = flagArgs.find(a => a.startsWith('--provider='));
-const PROVIDER = providerFlag ? providerFlag.split('=')[1] : 'esri';
+const providerFlag = flagArgs.find((a) => a.startsWith("--provider="));
+const PROVIDER = providerFlag ? providerFlag.split("=")[1] : "esri";
 
 const TILE_URLS: Record<string, string> = {
   esri: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  mapbox: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${process.env.MAPBOX_ACCESS_TOKEN || ''}`,
+  mapbox: `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=${process.env.MAPBOX_ACCESS_TOKEN || ""}`,
   google: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
   bing: "https://ecn.t0.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1",
-  hillshade: "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
-  ocean: "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
+  hillshade:
+    "https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+  ocean:
+    "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
   cartodark: "https://basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
 };
-const IS_OCEAN_COMPOSITE = PROVIDER === 'ocean-composite';
+const IS_OCEAN_COMPOSITE = PROVIDER === "ocean-composite";
 // Hillshade tiles max out at zoom 16
 if (IS_OCEAN_COMPOSITE && ZOOM > 16) {
   console.log(`Hillshade capped: zoom ${ZOOM} → 16`);
   ZOOM = 16;
 }
-const TILE_URL = IS_OCEAN_COMPOSITE ? TILE_URLS.hillshade : (TILE_URLS[PROVIDER] || TILE_URLS.esri);
-const CARTO_POSITRON_URL = "https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png";
-if (PROVIDER !== 'esri') console.log(`Using tile provider: ${PROVIDER}`);
+const TILE_URL = IS_OCEAN_COMPOSITE
+  ? TILE_URLS.hillshade
+  : TILE_URLS[PROVIDER] || TILE_URLS.esri;
+const CARTO_POSITRON_URL =
+  "https://basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png";
+if (PROVIDER !== "esri") console.log(`Using tile provider: ${PROVIDER}`);
 
 // ---------- Web Mercator math ----------
 
@@ -80,7 +85,7 @@ function lngLatToPixel(
   lat: number,
   zoom: number,
   originTileX: number,
-  originTileY: number
+  originTileY: number,
 ): { x: number; y: number } {
   const globalX = lngToTileX(lng, zoom) * TILE_SIZE;
   const globalY = latToTileY(lat, zoom) * TILE_SIZE;
@@ -94,7 +99,7 @@ function lngLatToPixel(
 
 // ---------- Bing quadkey helper ----------
 function tileToQuadkey(x: number, y: number, z: number): string {
-  let quadkey = '';
+  let quadkey = "";
   for (let i = z; i > 0; i--) {
     let digit = 0;
     const mask = 1 << (i - 1);
@@ -111,9 +116,10 @@ async function fetchTile(
   z: number,
   x: number,
   y: number,
-  urlTemplate?: string
+  urlTemplate?: string,
 ): Promise<Buffer> {
-  let url = (urlTemplate || TILE_URL).replace("{z}", String(z))
+  let url = (urlTemplate || TILE_URL)
+    .replace("{z}", String(z))
     .replace("{x}", String(x))
     .replace("{y}", String(y));
   if (url.includes("{quadkey}")) {
@@ -140,18 +146,18 @@ async function main() {
   const routeData = JSON.parse(
     fs.readFileSync(
       path.join(__dirname, "../src/data/route-processed.json"),
-      "utf-8"
-    )
+      "utf-8",
+    ),
   );
   const { cumulativeDistances, elevations } = routeData.properties;
   const coords: [number, number][] = routeData.geometry.coordinates;
 
   // Extract segment indices
   const startIdx = cumulativeDistances.findIndex(
-    (d: number) => d >= SEGMENT_START_KM
+    (d: number) => d >= SEGMENT_START_KM,
   );
   const endIdx = cumulativeDistances.findIndex(
-    (d: number) => d >= SEGMENT_END_KM
+    (d: number) => d >= SEGMENT_END_KM,
   );
   const rawSegmentCoords = coords.slice(startIdx, endIdx + 1);
 
@@ -171,7 +177,7 @@ async function main() {
   const segmentCoords = resampledCoords;
 
   console.log(
-    `Segment: km ${SEGMENT_START_KM}-${SEGMENT_END_KM}, ${rawSegmentCoords.length} raw → ${segmentCoords.length} resampled points`
+    `Segment: km ${SEGMENT_START_KM}-${SEGMENT_END_KM}, ${rawSegmentCoords.length} raw → ${segmentCoords.length} resampled points`,
   );
 
   // Compute bounding box of segment
@@ -237,7 +243,9 @@ async function main() {
     botRightPx.x += shiftX;
     topLeftPx.y += shiftY;
     botRightPx.y += shiftY;
-    console.log(`Applied viewport offset: ${OFFSET_X * 100}% right, ${OFFSET_Y * 100}% down`);
+    console.log(
+      `Applied viewport offset: ${OFFSET_X * 100}% right, ${OFFSET_Y * 100}% down`,
+    );
   }
 
   // Convert back to lng/lat for the final bounds
@@ -247,10 +255,10 @@ async function main() {
   const finalMinLat = tileYToLat(botRightPx.y / TILE_SIZE, ZOOM);
 
   console.log(
-    `Final bounds: [${finalMinLng.toFixed(5)}, ${finalMinLat.toFixed(5)}] to [${finalMaxLng.toFixed(5)}, ${finalMaxLat.toFixed(5)}]`
+    `Final bounds: [${finalMinLng.toFixed(5)}, ${finalMinLat.toFixed(5)}] to [${finalMaxLng.toFixed(5)}, ${finalMaxLat.toFixed(5)}]`,
   );
   console.log(
-    `Pixel dimensions before crop: ${Math.round(pxWidth)} x ${Math.round(pxHeight)}`
+    `Pixel dimensions before crop: ${Math.round(pxWidth)} x ${Math.round(pxHeight)}`,
   );
 
   // Determine which tiles we need
@@ -264,7 +272,7 @@ async function main() {
   const totalTiles = tilesX * tilesY;
 
   console.log(
-    `Tiles: ${tilesX}x${tilesY} = ${totalTiles} tiles at zoom ${ZOOM}`
+    `Tiles: ${tilesX}x${tilesY} = ${totalTiles} tiles at zoom ${ZOOM}`,
   );
 
   // Download all tiles (with concurrency limit)
@@ -288,7 +296,7 @@ async function main() {
         if (fetched % 10 === 0 || fetched === totalTiles) {
           process.stdout.write(`\rDownloaded ${fetched}/${totalTiles} tiles`);
         }
-      })
+      }),
     );
   }
 
@@ -344,9 +352,11 @@ async function main() {
           waterBuffers.set(`${x},${y}`, buf);
           wFetched++;
           if (wFetched % 10 === 0 || wFetched === totalTiles) {
-            process.stdout.write(`\rDownloaded ${wFetched}/${totalTiles} water tiles`);
+            process.stdout.write(
+              `\rDownloaded ${wFetched}/${totalTiles} water tiles`,
+            );
           }
-        })
+        }),
       );
     }
     for (let i = 0; i < waterQueue.length; i += CONCURRENCY) {
@@ -384,10 +394,12 @@ async function main() {
     // Blend: multiply the water layer on top of hillshade
     // sharp's "multiply" blend mode does exactly this
     stitchedBuf = await sharp(stitchedBuf)
-      .composite([{
-        input: await sharp(waterStitched).ensureAlpha().toBuffer(),
-        blend: "multiply" as any,
-      }])
+      .composite([
+        {
+          input: await sharp(waterStitched).ensureAlpha().toBuffer(),
+          blend: "multiply" as any,
+        },
+      ])
       .png()
       .toBuffer();
   }
@@ -431,7 +443,7 @@ async function main() {
         x: (relX / pxWidth) * OUTPUT_WIDTH,
         y: (relY / pxHeight) * OUTPUT_HEIGHT,
       };
-    }
+    },
   );
 
   // Compute cumulative distances for the resampled segment
@@ -454,8 +466,11 @@ async function main() {
       return origSegElevs[origSegElevs.length - 1];
     for (let i = 1; i < origSegDists.length; i++) {
       if (origSegDists[i] >= d) {
-        const t = (d - origSegDists[i - 1]) / (origSegDists[i] - origSegDists[i - 1]);
-        return origSegElevs[i - 1] + t * (origSegElevs[i] - origSegElevs[i - 1]);
+        const t =
+          (d - origSegDists[i - 1]) / (origSegDists[i] - origSegDists[i - 1]);
+        return (
+          origSegElevs[i - 1] + t * (origSegElevs[i] - origSegElevs[i - 1])
+        );
       }
     }
     return origSegElevs[origSegElevs.length - 1];
@@ -474,7 +489,7 @@ async function main() {
         x: (relX / pxWidth) * OUTPUT_WIDTH,
         y: (relY / pxHeight) * OUTPUT_HEIGHT,
       };
-    }
+    },
   );
 
   const metadata = {
@@ -513,7 +528,7 @@ async function main() {
   fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
   console.log(`Saved ${metaPath}`);
   console.log(
-    `Segment: ${metadata.segmentLengthKm.toFixed(1)} km, peak ${metadata.peakElevation.toFixed(0)}m`
+    `Segment: ${metadata.segmentLengthKm.toFixed(1)} km, peak ${metadata.peakElevation.toFixed(0)}m`,
   );
 }
 

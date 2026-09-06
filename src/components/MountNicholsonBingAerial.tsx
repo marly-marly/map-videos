@@ -16,11 +16,13 @@ export type MountNicholsonBingAerialProps = {
   showElevation?: boolean;
   distanceLabel?: string;
   elevationLabel?: string;
-}
+};
 
 const typedMeta = meta as unknown as SegmentMeta;
 
-export const MountNicholsonBingAerial: React.FC<MountNicholsonBingAerialProps> = ({
+export const MountNicholsonBingAerial: React.FC<
+  MountNicholsonBingAerialProps
+> = ({
   routeColor,
   routeWidth,
   dotSize,

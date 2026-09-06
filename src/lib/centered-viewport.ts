@@ -9,7 +9,13 @@
  * segment once and zooms with CSS. Keep the two approaches separate.
  */
 import { computeViewport } from "./tile-viewport";
-import { lngToTileX, latToTileY, tileXToLng, tileYToLat, TILE_SIZE } from "./mercator";
+import {
+  lngToTileX,
+  latToTileY,
+  tileXToLng,
+  tileYToLat,
+  TILE_SIZE,
+} from "./mercator";
 
 /**
  * Compute a viewport centered on a geographic point.
@@ -30,8 +36,8 @@ export function computeCenteredViewport(
   // Output is 3840x2160. Divide by cameraScale to zoom in/out.
   // Add 20% extra on each side to handle look-ahead shifting.
   const margin = 1.2;
-  const halfW = (3840 / 2) * margin / cameraScale;
-  const halfH = (2160 / 2) * margin / cameraScale;
+  const halfW = ((3840 / 2) * margin) / cameraScale;
+  const halfH = ((2160 / 2) * margin) / cameraScale;
 
   const topLeftPxX = centerPxX - halfW;
   const topLeftPxY = centerPxY - halfH;
@@ -46,7 +52,16 @@ export function computeCenteredViewport(
 
   // Use computeViewport with a bbox that covers the centered area
   return computeViewport(
-    [[minLng, minLat], [maxLng, maxLat]],
-    { zoom, padding: 0, offsetX: 0, offsetY: 0, provider: provider === "ocean-composite" ? "hillshade" : provider }
+    [
+      [minLng, minLat],
+      [maxLng, maxLat],
+    ],
+    {
+      zoom,
+      padding: 0,
+      offsetX: 0,
+      offsetY: 0,
+      provider: provider === "ocean-composite" ? "hillshade" : provider,
+    },
   );
 }

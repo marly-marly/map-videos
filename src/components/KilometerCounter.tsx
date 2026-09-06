@@ -30,8 +30,7 @@ export const KilometerCounter: React.FC<KilometerCounterProps> = ({
           fontSize: 72,
           fontWeight: 700,
           color: "white",
-          textShadow:
-            "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+          textShadow: "0 2px 12px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
           lineHeight: 1,
         }}
       >
@@ -45,8 +44,7 @@ export const KilometerCounter: React.FC<KilometerCounterProps> = ({
           fontSize: 36,
           fontWeight: 400,
           color: "rgba(255,255,255,0.85)",
-          textShadow:
-            "0 2px 8px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
+          textShadow: "0 2px 8px rgba(0,0,0,0.9), 0 0px 4px rgba(0,0,0,0.5)",
           lineHeight: 1,
         }}
       >
