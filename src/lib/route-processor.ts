@@ -53,9 +53,13 @@ export function processRoute(points: GpxPoint[]): ProcessedRoute {
 
   const fullLine = turf.lineString(coordinates);
 
-  // Douglas-Peucker simplification (~0.0001° ≈ 10m tolerance)
+  // Douglas-Peucker simplification. Long routes (calibrated km boundaries)
+  // keep the ~10m tolerance; short routes get ~1m so corners aren't cut.
+  const [minLng, minLat, maxLng, maxLat] = turf.bbox(fullLine);
+  const extentDeg = Math.max(maxLng - minLng, maxLat - minLat);
+  const tolerance = extentDeg < 0.2 ? 0.00001 : 0.0001;
   const simplified = turf.simplify(fullLine, {
-    tolerance: 0.0001,
+    tolerance,
     highQuality: true,
   });
   const simplifiedCoords = simplified.geometry.coordinates as [

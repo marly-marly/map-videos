@@ -206,8 +206,16 @@ const lineGroup = z.object({
   routeCasing: z
     .number()
     .min(0)
-    .max(200)
+    .max(1000)
     .describe("Dark outline around route (0 = off, 100 = default)"),
+  routeCasingColor: z
+    .string()
+    .describe("Colour of the outline around the route (hex, e.g. #000000)"),
+  routeCasingOpacity: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("How see-through the outline is (100 = solid, 60 = default, 0 = invisible)"),
   routeShadow: z
     .number()
     .min(0)
@@ -297,6 +305,8 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
     dotPulseSpeed,
     routeGlow,
     routeCasing,
+    routeCasingColor,
+    routeCasingOpacity,
     routeShadow,
     showPreviousRoute,
     reverseDrawing,
@@ -735,10 +745,18 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   const cameraZoom = startZ + (endZ - startZ) * cameraProgress;
 
   // Line, dot, glow and shadow sizes are in the zoom wrapper's pixels, so the
-  // CSS scale enlarges them. At camera zoom >= 100 this keeps them exactly as
-  // they were before wide starts existed; while the camera is wider than 100
-  // it holds them at their 100% on-screen size instead of shrinking to nothing.
-  const overlaySize = Math.max(1, cameraZoom / widen) / cameraZoom;
+  // CSS scale enlarges them along with the map. Dividing by the END zoom makes
+  // the prop values the true on-screen size at the final camera zoom; earlier
+  // in the zoom they are proportionally smaller, like features on the map.
+  const overlaySize = 1 / endZ;
+
+  // Casing colour with opacity applied; opacity also scales with routeCasing.
+  const casingStroke = (() => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(routeCasingColor.trim());
+    const n = m ? parseInt(m[1], 16) : 0;
+    const a = (routeCasingOpacity / 100) * (routeCasing / 100);
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.min(1, a)})`;
+  })();
 
   // Fade overlays (sit above tiles, below the route so the route stays visible).
   const fadeFrames = Math.max(0, fadeInOutLength) * fps;
@@ -1096,7 +1114,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
           )}
 
           {/* Route shadow (soft blur underneath) */}
-          {routeShadow > 0 && !isPointOnly && (
+          {routeShadow > 0 && !isPointOnly && easedDraw > 0 && (
             <path
               d={svgPath}
               fill="none"
@@ -1113,11 +1131,11 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
           )}
 
           {/* Route casing (dark outline) */}
-          {routeCasing > 0 && !isPointOnly && (
+          {routeCasing > 0 && !isPointOnly && easedDraw > 0 && (
             <path
               d={svgPath}
               fill="none"
-              stroke={`rgba(0,0,0,${0.6 * (routeCasing / 100)})`}
+              stroke={casingStroke}
               strokeWidth={(routeWidth + 6 * (routeCasing / 100)) * overlaySize}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1127,7 +1145,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
           )}
 
           {/* Route line */}
-          {!isPointOnly && (
+          {!isPointOnly && easedDraw > 0 && (
             <path
               d={svgPath}
               fill="none"
