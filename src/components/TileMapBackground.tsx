@@ -12,6 +12,7 @@
  */
 import React, { useEffect, useMemo, useRef } from "react";
 import { continueRender, delayRender } from "remotion";
+import { withCartoKey } from "../lib/carto-key";
 import type { TileViewport } from "../lib/tile-viewport";
 
 interface TileMapBackgroundProps {
@@ -92,7 +93,9 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
       }
       viewport.tiles.forEach((t) => {
         urls.push(
-          `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`,
+          withCartoKey(
+            `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`,
+          ),
         );
       });
     } else {
@@ -259,7 +262,9 @@ export const TileMapBackground: React.FC<TileMapBackgroundProps> = ({
     // works at all zoom levels. Blended on top of hillshade via multiply mode.
     const waterTiles = viewport.tiles.map((t) => ({
       ...t,
-      url: `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`,
+      url: withCartoKey(
+        `https://basemaps.cartocdn.com/light_nolabels/${viewport.zoom}/${t.x}/${t.y}.png`,
+      ),
     }));
 
     return (

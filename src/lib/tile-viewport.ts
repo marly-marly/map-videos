@@ -3,7 +3,15 @@
  * Ported from scripts/render-static-map.ts viewport logic.
  */
 import { z } from "zod";
-import { lngToTileX, latToTileY, tileToQuadkey, TILE_SIZE } from "./mercator";
+import { withCartoKey } from "./carto-key";
+import {
+  lngToTileX,
+  latToTileY,
+  tileXToLng,
+  tileYToLat,
+  tileToQuadkey,
+  TILE_SIZE,
+} from "./mercator";
 
 const OUTPUT_WIDTH = 3840;
 const OUTPUT_HEIGHT = 2160;
@@ -288,11 +296,13 @@ function buildTileUrl(
   z: number,
 ): string {
   const template = TILE_URLS[provider] || TILE_URLS.esri;
-  return template
-    .replace("{z}", String(z))
-    .replace("{x}", String(x))
-    .replace("{y}", String(y))
-    .replace("{quadkey}", tileToQuadkey(x, y, z));
+  return withCartoKey(
+    template
+      .replace("{z}", String(z))
+      .replace("{x}", String(x))
+      .replace("{y}", String(y))
+      .replace("{quadkey}", tileToQuadkey(x, y, z)),
+  );
 }
 
 /**
@@ -472,6 +482,21 @@ export function coordsToPixels(
       y: (gridY - cropTop) * scale,
     };
   });
+}
+
+/** Inverse of coordsToPixels: an output-pixel position back to [lng, lat]. */
+export function pixelToCoords(
+  x: number,
+  y: number,
+  viewport: TileViewport,
+): [number, number] {
+  const { zoom, tileMinX, tileMinY, cropLeft, cropTop, scale } = viewport;
+  const globalX = x / scale + cropLeft + tileMinX * TILE_SIZE;
+  const globalY = y / scale + cropTop + tileMinY * TILE_SIZE;
+  return [
+    tileXToLng(globalX / TILE_SIZE, zoom),
+    tileYToLat(globalY / TILE_SIZE, zoom),
+  ];
 }
 
 export { TILE_URLS, OUTPUT_WIDTH, OUTPUT_HEIGHT };

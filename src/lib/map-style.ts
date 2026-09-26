@@ -1,5 +1,7 @@
 import type { StyleSpecification } from "maplibre-gl";
 
+const CARTO_KEY = process.env.REMOTION_CARTO_KEY ?? "";
+
 // Use CARTO Voyager "no labels" @2x tiles — high-res raster without text.
 // No labels means no warped/mushy text on 3D terrain, and a cleaner cinematic look.
 export const mapStyle: StyleSpecification = {
@@ -8,10 +10,10 @@ export const mapStyle: StyleSpecification = {
     "carto-nolabels": {
       type: "raster",
       tiles: [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png",
-        "https://d.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png",
+        `https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png?key=${CARTO_KEY}`,
+        `https://b.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png?key=${CARTO_KEY}`,
+        `https://c.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png?key=${CARTO_KEY}`,
+        `https://d.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png?key=${CARTO_KEY}`,
       ],
       tileSize: 512,
       attribution: "&copy; OpenStreetMap contributors &copy; CARTO",

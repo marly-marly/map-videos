@@ -6,6 +6,7 @@
  */
 
 import sharp from "sharp";
+import { withCartoKey } from "../src/lib/carto-key";
 import fs from "fs";
 import path from "path";
 import * as turf from "@turf/turf";
@@ -125,6 +126,9 @@ async function fetchTile(
   if (url.includes("{quadkey}")) {
     url = url.replace("{quadkey}", tileToQuadkey(x, y, z));
   }
+  // Carto tiles need REMOTION_CARTO_KEY (see .env.example); run with
+  // `node --env-file=.env` or set it in the shell.
+  url = withCartoKey(url);
 
   for (let attempt = 0; attempt < 3; attempt++) {
     try {

@@ -11,3 +11,6 @@ out/
 
 # Per-machine Claude Code permissions allowlist. Personal, not shared.
 .claude/settings.local.json
+
+# Local secrets (Carto basemap API key)
+.env

@@ -16,6 +16,7 @@ import { getPreviousRouteCoords } from "../lib/route-processor";
 import {
   computeViewport,
   coordsToPixels,
+  pixelToCoords,
   mapProviderEnum,
   mapProviderOptionalEnum,
   blendModeEnum,
@@ -113,6 +114,11 @@ const mapGroup = z.object({
     .describe(
       "Reduce tile zoom for the zoomed-out provider (0 = same, 2 = 2 levels lower)",
     ),
+  sharpZoom: z
+    .boolean()
+    .describe(
+      "Load extra-detailed map tiles for the area the camera zooms into, fading them in as it zooms. Without this, zooming in only enlarges the starting map and gets blurry.",
+    ),
 });
 
 // Camera framing — zoom ramp, anchor, tracking, and viewport offsets.
@@ -121,12 +127,16 @@ const cameraGroup = z.object({
     .number()
     .min(1)
     .max(1000)
-    .describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
+    .describe(
+      "Camera zoom at the start, in % (100 = segment + padding fills the frame, 10 = 10x wider view e.g. all of Hong Kong, 1000 = 10x closer)",
+    ),
   cameraEndZoom: z
     .number()
     .min(1)
     .max(1000)
-    .describe("Camera zoom % (100 = default, 1 = extreme wide, 1000 = 10x in)"),
+    .describe(
+      "Camera zoom at the end, in % (100 = segment + padding fills the frame, 10 = 10x wider, 1000 = 10x closer)",
+    ),
   cameraZoomDelay: z
     .number()
     .min(0)
@@ -155,7 +165,7 @@ const cameraGroup = z.object({
   cameraTracking: z
     .enum(["animated", "still"])
     .describe(
-      "animated = zoom + anchor follow per props, still = camera locked at start zoom, no movement",
+      "animated = the zoom pivot can follow the dot; still = the pivot never moves (a 'dot' pivot falls back to cameraAnchorX/Y). The zoom itself animates either way.",
     ),
   padding: z
     .number()
@@ -265,6 +275,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
     tileTransitionEnd,
     zoom,
     zoomReduction,
+    sharpZoom,
   } = props.map;
   const {
     cameraStartZoom,
@@ -307,25 +318,34 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   // fetch resolves.
   const { gpxData, route, segment } = useGpxSegment(gpxFile, startKm, endKm);
 
+  // Camera zoom 100 = the default framing (segment + padding). Below 100 the
+  // camera starts wider than that, so every tile layer is built `widen` times
+  // larger in each direction and the CSS scale is normalised so the widest
+  // camera state is exactly 1.0 — the map always fills the frame.
   const minCameraScale = Math.min(cameraStartZoom, cameraEndZoom) / 100;
+  const widen = minCameraScale < 1 ? 1 / minCameraScale : 1;
 
-  // Convert offset percentages to fractions
-  const oX = offsetX / 100;
-  const oY = offsetY / 100;
+  // Offsets are % of the default framing, so undo the widening.
+  const oX = offsetX / 100 / widen;
+  const oY = offsetY / 100 / widen;
 
-  // Both viewports must cover the same physical area (the widest view).
-  // The padding is inflated based on the most zoomed-out camera state.
+  // Grow the padded bbox so its width and height are both `widen` times the
+  // default framing's.
   const basePadding = padding / 100;
-  const effectivePadding =
-    minCameraScale < 1 ? basePadding / minCameraScale : basePadding;
+  const effectivePadding = ((1 + 2 * basePadding) * widen - 1) / 2;
+
+  // `zoom` is the tile zoom for the default framing. A view `widen` times
+  // wider needs log2(widen) fewer zoom levels for the same number of tiles —
+  // without this, a whole-Hong-Kong start at zoom 17 would need ~15,000 tiles.
+  const widenZoomDrop = Math.round(Math.log2(widen));
+  const baseTileZoom = Math.max(1, zoom - widenZoomDrop);
 
   // Apply zoomReduction to whichever provider is shown at the more zoomed-out camera state.
   // Lower tile zoom = fewer tiles for the same area = faster loading.
   const startIsWider = cameraStartZoom <= cameraEndZoom;
-  const startZoomLevel = startIsWider
-    ? Math.max(10, zoom - zoomReduction)
-    : zoom;
-  const endZoomLevel = startIsWider ? zoom : Math.max(10, zoom - zoomReduction);
+  const reducedTileZoom = Math.max(1, baseTileZoom - zoomReduction);
+  const startZoomLevel = startIsWider ? reducedTileZoom : baseTileZoom;
+  const endZoomLevel = startIsWider ? baseTileZoom : reducedTileZoom;
 
   // Compute viewport (start provider — base for coordinates and route overlay)
   const viewport = useMemo(() => {
@@ -570,6 +590,98 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
     height,
   ]);
 
+  // Sharp-zoom patch. The camera zoom is a CSS scale of one tile image, so on
+  // its own it can only enlarge pixels. This computes a second, higher-zoom
+  // tile set covering just the region framed at full zoom-in (plus a margin so
+  // its feathered edge stays off-screen), in the zoom wrapper's pixel space.
+  // It belongs to whichever provider era is showing at the end of the video.
+  const patchProvider = hasTileTransition ? providerEnd : provider;
+  const patchProvider2 = hasTileTransition ? providerEnd2 : provider2;
+  const patchBaseViewport = hasTileTransition ? viewportEnd : viewport;
+  const sharpPatch = useMemo(() => {
+    // The CSS scale at the end of the zoom (see cameraZoom below).
+    const endScale = (cameraEndZoom / 100) * widen;
+    if (!sharpZoom || !viewport || !patchBaseViewport) return null;
+    if (cameraEndZoom <= cameraStartZoom || endScale <= 1) return null;
+
+    // Where the zoom pivot sits once the zoom has finished.
+    const zoomEndFrac =
+      cameraZoomEndDelay > cameraZoomDelay ? cameraZoomEndDelay / 100 : 1;
+    let anchor = effectiveAnchor;
+    if (cameraTracking === "animated" && cameraAnchorMode === "dot") {
+      const draw = Math.min(1, zoomEndFrac / drawEnd);
+      const p = pointAtDrawFraction(
+        segmentPoints,
+        pathMetrics,
+        reverseDrawing ? 1 - draw : draw,
+      );
+      if (p) anchor = { x: (p.x / width) * 100, y: (p.y / height) * 100 };
+    }
+    const ax = (anchor.x / 100) * width;
+    const ay = (anchor.y / 100) * height;
+
+    // Visible rect at full zoom, grown by 40% and kept inside the frame.
+    const MARGIN = 1.4;
+    const visW = width / endScale;
+    const visH = height / endScale;
+    const w = Math.min(width, visW * MARGIN);
+    const h = (w * height) / width;
+    const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+    const x = clamp(ax * (1 - 1 / endScale) - (w - visW) / 2, width - w);
+    const y = clamp(ay * (1 - 1 / endScale) - (h - visH) / 2, height - h);
+
+    // Enough extra tile zoom that one tile pixel ≈ one screen pixel at the
+    // end. Capped at 19 like the zoom prop; computeViewport also clamps to the
+    // provider's own ceiling.
+    const magnification = patchBaseViewport.scale * endScale;
+    const tileZoom = Math.min(
+      19,
+      patchBaseViewport.zoom + Math.ceil(Math.log2(magnification) - 0.3),
+    );
+    if (tileZoom <= patchBaseViewport.zoom) return null;
+
+    const corners = [
+      pixelToCoords(x, y, viewport),
+      pixelToCoords(x + w, y + h, viewport),
+    ];
+    const patchViewport = (p: string) =>
+      computeViewport(corners, {
+        zoom: tileZoom,
+        padding: 0,
+        provider: p === "ocean-composite" ? "hillshade" : p,
+      });
+    const vp = patchViewport(patchProvider);
+    // The provider's zoom cap can leave nothing to gain (e.g. hillshade at 16).
+    if (vp.zoom <= patchBaseViewport.zoom) return null;
+    return {
+      x,
+      y,
+      w,
+      viewport: vp,
+      viewport2:
+        patchProvider2 !== "none" ? patchViewport(patchProvider2) : null,
+    };
+  }, [
+    sharpZoom,
+    viewport,
+    patchBaseViewport,
+    patchProvider,
+    patchProvider2,
+    cameraStartZoom,
+    cameraEndZoom,
+    widen,
+    cameraZoomDelay,
+    cameraZoomEndDelay,
+    cameraTracking,
+    cameraAnchorMode,
+    effectiveAnchor,
+    segmentPoints,
+    pathMetrics,
+    reverseDrawing,
+    width,
+    height,
+  ]);
+
   // Loading state
   if (!viewport || !segment) {
     return (
@@ -618,9 +730,15 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
   // Smoothstep ease-in-out: gradual acceleration and deceleration
   const cameraProgress =
     linearProgress * linearProgress * (3 - 2 * linearProgress);
-  const startZ = cameraStartZoom / 100;
-  const endZ = cameraEndZoom / 100;
+  const startZ = (cameraStartZoom / 100) * widen;
+  const endZ = (cameraEndZoom / 100) * widen;
   const cameraZoom = startZ + (endZ - startZ) * cameraProgress;
+
+  // Line, dot, glow and shadow sizes are in the zoom wrapper's pixels, so the
+  // CSS scale enlarges them. At camera zoom >= 100 this keeps them exactly as
+  // they were before wide starts existed; while the camera is wider than 100
+  // it holds them at their 100% on-screen size instead of shrinking to nothing.
+  const overlaySize = Math.max(1, cameraZoom / widen) / cameraZoom;
 
   // Fade overlays (sit above tiles, below the route so the route stays visible).
   const fadeFrames = Math.max(0, fadeInOutLength) * fps;
@@ -646,6 +764,26 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
         ? 1
         : 0
     : 1;
+
+  // provider → providerEnd crossfade.
+  const tStartF = (tileTransitionStart / 100) * durationInFrames;
+  const tEndF = (tileTransitionEnd / 100) * durationInFrames;
+  const endOpacity =
+    tEndF > tStartF
+      ? interpolate(frame, [tStartF, tEndF], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 1;
+
+  // The sharp patch fades in with the zoom, and never shows more than the
+  // era it belongs to.
+  const sharpPatchOpacity =
+    cameraProgress * (hasTileTransition ? endOpacity : providerRevealOpacity);
+  // Feathered edge so the patch blends into the blurrier map around it while
+  // the zoom is still in progress.
+  const featherMask =
+    "linear-gradient(to right, transparent, black 10%, black 90%, transparent), linear-gradient(to bottom, transparent, black 10%, black 90%, transparent)";
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#0a0a0a" }}>
@@ -751,15 +889,6 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
         {hasTileTransition &&
           viewportEnd &&
           (() => {
-            const startF = (tileTransitionStart / 100) * durationInFrames;
-            const endF = (tileTransitionEnd / 100) * durationInFrames;
-            const endOpacity =
-              endF > startF
-                ? interpolate(frame, [startF, endF], [0, 1], {
-                    extrapolateLeft: "clamp",
-                    extrapolateRight: "clamp",
-                  })
-                : 1;
             return (
               <div
                 style={{
@@ -804,6 +933,59 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               </div>
             );
           })()}
+
+        {/* Sharp-zoom patch — high-zoom tiles for the final framed area */}
+        {sharpPatch && (
+          <div
+            style={{
+              position: "absolute",
+              left: sharpPatch.x,
+              top: sharpPatch.y,
+              width,
+              height,
+              transform: `scale(${sharpPatch.w / width})`,
+              transformOrigin: "0 0",
+              isolation: "isolate",
+              opacity: sharpPatchOpacity,
+              maskImage: featherMask,
+              maskComposite: "intersect",
+              WebkitMaskImage: featherMask,
+              WebkitMaskComposite: "source-in",
+            }}
+          >
+            <TileMapBackground
+              viewport={sharpPatch.viewport}
+              style={
+                patchProvider === "ocean-composite"
+                  ? "ocean-composite"
+                  : "satellite"
+              }
+            />
+            {sharpPatch.viewport2 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  mixBlendMode: hasTileTransition
+                    ? providerEnd2BlendMode
+                    : provider2BlendMode,
+                }}
+              >
+                <TileMapBackground
+                  viewport={sharpPatch.viewport2}
+                  style={
+                    patchProvider2 === "ocean-composite"
+                      ? "ocean-composite"
+                      : "satellite"
+                  }
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Fade-in overlay (color covers tiles but is underneath the route) */}
         {fadeInColor && fadeInOpacity > 0 && (
@@ -855,7 +1037,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               >
                 <feGaussianBlur
                   in="SourceGraphic"
-                  stdDeviation={12 * (routeShadow / 100)}
+                  stdDeviation={12 * (routeShadow / 100) * overlaySize}
                 />
               </filter>
             )}
@@ -870,7 +1052,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
                 >
                   <feGaussianBlur
                     in="SourceGraphic"
-                    stdDeviation={8 * (routeGlow / 100)}
+                    stdDeviation={8 * (routeGlow / 100) * overlaySize}
                     result="blur"
                   />
                   <feMerge>
@@ -887,7 +1069,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
                 >
                   <feGaussianBlur
                     in="SourceGraphic"
-                    stdDeviation={12 * (routeGlow / 100)}
+                    stdDeviation={12 * (routeGlow / 100) * overlaySize}
                     result="blur"
                   />
                   <feMerge>
@@ -906,7 +1088,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               d={prevPath}
               fill="none"
               stroke={routeColor}
-              strokeWidth={routeWidth}
+              strokeWidth={routeWidth * overlaySize}
               strokeLinecap="round"
               strokeLinejoin="round"
               opacity={0.4}
@@ -919,7 +1101,9 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               d={svgPath}
               fill="none"
               stroke={`rgba(0,0,0,${0.5 * (routeShadow / 100)})`}
-              strokeWidth={routeWidth + 20 * (routeShadow / 100)}
+              strokeWidth={
+                (routeWidth + 20 * (routeShadow / 100)) * overlaySize
+              }
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray={pathLength}
@@ -934,7 +1118,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               d={svgPath}
               fill="none"
               stroke={`rgba(0,0,0,${0.6 * (routeCasing / 100)})`}
-              strokeWidth={routeWidth + 6 * (routeCasing / 100)}
+              strokeWidth={(routeWidth + 6 * (routeCasing / 100)) * overlaySize}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray={pathLength}
@@ -948,7 +1132,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
               d={svgPath}
               fill="none"
               stroke={routeColor}
-              strokeWidth={routeWidth}
+              strokeWidth={routeWidth * overlaySize}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeDasharray={pathLength}
@@ -961,7 +1145,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
           {(isPointOnly || easedDraw > 0 || reverseDrawing) &&
             dotSize > 0 &&
             (() => {
-              const ds = dotSize / 100;
+              const ds = (dotSize / 100) * overlaySize;
               const glowR = 32 * ds;
               const innerR = 15 * ds;
               const strokeW = 6 * ds;
@@ -983,7 +1167,7 @@ export const GPXSegment: React.FC<GPXSegmentProps> = (props) => {
                     r={innerR}
                     fill="#ffffff"
                     stroke={routeColor}
-                    strokeWidth={strokeW}
+                    strokeWidth={strokeW * overlaySize}
                   />
                 </>
               );
